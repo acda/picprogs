@@ -50,8 +50,6 @@ testTX:
 	subwf l_bufTXin,0
 	btfsc STATUS,Z
 	retlw 0
-	btfss STATUS,C
-	retlw 0
 	movlw high bufferTX
 	movwf FSR0H
 	movlw low bufferTX
@@ -69,6 +67,10 @@ testTX:
 	movwf TXREG
 	banksel 0
 	incf l_bufTXout,1
+	movlw bufferTXend-bufferTX
+	subwf l_bufTXout,0
+	btfsc STATUS,C
+	clrf l_bufTXout
 	retlw 1
 
 testRX:

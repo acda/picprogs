@@ -22,8 +22,6 @@ ml_TXSbitcount  = 0x75
 ml_TXSshiftreg  = 0x76
 
 
-ml_bufTXSin       = 0x7C
-ml_bufTXSout      = 0x7D
 ; vars bound to bank 0
 l_Al             = 0x20
 l_Ah             = 0x21
@@ -64,7 +62,6 @@ l_framBuf2        = 0x54 ; .28 bytes
 portA_pwm = 4
 
 portB_led = 0
-portB_TXS = 1
 portB_RX = 2
 
 portB_TX = 5
@@ -118,12 +115,10 @@ portbit_S16 = 5
 l_servoValuesBuffer = 0x0A0	; 2*.18 bytes    0x2050 .. 0x2074
 l_servoPWMdata = 0x2074		; size 16*3 .. 0x20A4
 
-bufferTX = (l_framBuf2)
-bufferTXend = (l_framBuf2+.28)
 bufferRX = (l_framBuf1)
 bufferRXend = (l_framBuf1+.28)
-bufferTXS = 0x20F0
-bufferTXSend = 0x21E8
+bufferTX = 0x20F0
+bufferTXend = 0x2228
 ; next buffer was up to 0x2228
 
 
@@ -135,103 +130,7 @@ bufferTXSend = 0x21E8
 
 	org 4
 	banksel 0		; assume entering int after +2 cycles
-	btfss PIR3,3		; TMR6IF
-	bra not_intTX
-	bcf PIR3,3		; TMR6IF
-	banksel LATA
-	movf ml_TXSbitcount,0
-	incf ml_TXSbitcount,1
 
-	brw
-	bra intTX_idle
-	bra intTX_start
-	bra intTX_bit
-	bra intTX_bit
-	bra intTX_bit
-	bra intTX_bit
-	bra intTX_bit
-	bra intTX_bit
-	bra intTX_bit
-	bra intTX_bit
-	;bra intTX_parity
-	bra intTX_stop1
-	bra intTX_stop2
-	bra intTX_idle
-	bra intTX_idle
-
-intTX_idle:
-	clrf ml_TXSbitcount
-
-	movf ml_bufTXSin,0	; check if data in TXS buffer
-	subwf ml_bufTXSout,0
-	btfsc STATUS,Z
-	retfie
-	movlw high bufferTXS	; get byte from buffer to TXS shiftreg
-	movwf FSR0H
-	movlw low bufferTXS
-	addwf ml_bufTXSout,0
-	movwf FSR0L
-	btfsc STATUS,C
-	incf FSR0H,1
-	moviw FSR0++
-
-	movwf ml_TXSshiftreg
-	incf ml_bufTXSout,1
-	movlw bufferTXSend-bufferTXS
-	subwf ml_bufTXSout,0
-	btfsc STATUS,C
-	clrf ml_bufTXSout
-	incf ml_TXSbitcount,1
-	retfie
-
-intTX_start:
-	banksel TRISB
-	bcf TRISB,portB_TXS
-	banksel LATB
-	nop
-	bcf LATB,portB_TXS
-	retfie
-intTX_bit:
-	rrf ml_TXSshiftreg,1
-	btfsc STATUS,C
-	bra $+4
-	nop
-	bcf LATB,portB_TXS
-	retfie
-	bsf LATB,portB_TXS
-	retfie
-intTX_stop1:
-	nop
-	nop
-	nop
-	nop
-	bsf LATB,portB_TXS
-	retfie
-intTX_stop2:
-	clrf ml_TXSbitcount
-	movlw high bufferTXS
-	movwf FSR0H
-	movf ml_bufTXSin,0
-	bsf LATB,portB_TXS
-	subwf ml_bufTXSout,0
-	btfsc STATUS,Z
-	retfie
-	movlw low bufferTXS
-	addwf ml_bufTXSout,0
-	movwf FSR0L
-	btfsc STATUS,C
-	incf FSR0H,1
-	moviw FSR0++
-	movwf ml_TXSshiftreg
-	incf ml_bufTXSout,1
-	movlw bufferTXSend-bufferTXS
-	subwf ml_bufTXSout,0
-	btfsc STATUS,C
-	clrf ml_bufTXSout
-	incf ml_TXSbitcount,1
-	retfie
-
-not_intTX:
 	retfie
 
 
@@ -272,12 +171,11 @@ skipPauseOsc:
 	bcf OPTION_REG,7		; ~WPUEN
 	banksel LATB
 	clrf LATA
-	bsf LATB,portB_TXS
 	bcf LATB,portB_led
 	banksel TRISA
 	movlw 0x20
 	movwf TRISA
-	movlw 0xFF-(1<<portB_TX)-(1<<portB_led)-(1<<portB_TXS)
+	movlw 0xFF-(1<<portB_TX)-(1<<portB_led)
 	movwf TRISB
 	banksel IOCBF
 	clrf IOCBP
@@ -292,6 +190,7 @@ skipPauseOsc:
 	; formula for baudrate value:
 	;  32e6/(4*100000)-1     for S-bus rate  =  79
 	;  32e6/(4*115200)-1     for 115k2 rate  =  68.44
+	;  32e6/(4* 57600)-1     for 115k2 rate  = 137.89
 	banksel BAUDCON
 	movlw 0x48
 	movwf BAUDCON		; RCIDL (BRG16=1)
@@ -300,23 +199,22 @@ skipPauseOsc:
 	bsf TXSTA,2 ; BRGH
 	; Set to 100.0 kBaud.
 	banksel SPBRGL
-	movlw .79      ;  for 100kbaud, .79      for 115k2baud, .68
+	movlw .68      ;  for 100kbaud, .79      for 115k2baud, .68
 	movwf SPBRGL
 	movlw 0x00
 	movwf SPBRGH
 
 	; UART TX
 	banksel BAUDCON
-	bsf BAUDCON,4	; SCKP	transmit inverted
 	banksel TXSTA
-	bsf TXSTA,6	; TX9 (enable 9-bit)
+;	bsf TXSTA,6	; TX9 (enable 9-bit)
 	bsf TXSTA,5	; TXEN (go)
 	banksel RCSTA
 	bsf RCSTA,7	; SPEN
 
 	; UART RX setup.
 	banksel RCSTA
-	bsf RCSTA,6 ; RX9
+;	bsf RCSTA,6 ; RX9 (enable 9-bit)
 	bsf RCSTA,4 ; CREN (go!)
 	banksel PIE1
 	bcf PIE1,5	; without intrr
@@ -332,13 +230,6 @@ skipPauseOsc:
 	clrf ml_timeCount
 	banksel PIE1
 	bcf PIE1,1  ; disable int
-
-	; timer6 is 19.2 kbaud-timer for soft-TX
-	banksel TMR6
-	movlw 0xCF	; (2*0xD0) -> 19.2k loops/sec
-	movwf PR6
-	movlw 0x0C  ; prescale=1, enable, postscale=1:2
-	movwf T6CON
 
 	; timer4 is for PWM. 3906.25 loops/sec @ 8MHz
 	banksel TMR4
@@ -356,6 +247,10 @@ skipPauseOsc:
 	movwf OPTION_REG
 	banksel TMR0
 	; no enable bit??? already running?
+
+	banksel TXREG
+	movlw 'D'
+	movwf TXREG
 
 	; CCP4 as PWM on timer4
 	banksel CCPTMRS
@@ -401,8 +296,6 @@ skipStartPause:
 	clrf l_bufRXin
 	clrf l_parityErrorsRX
 	clrf ml_TXSbitcount
-	clrf ml_bufTXSin
-	clrf ml_bufTXSout
 	clrf ml_timeCount
 	clrf l_secondsL
 	clrf l_secondsH
@@ -416,20 +309,20 @@ skipStartPause:
 
 	; preload TX buffer
 	movlw 'S'
-	call putTXS
+	call putTX
 	movlw 'b'
-	call putTXS
+	call putTX
 	movlw 'u'
-	call putTXS
+	call putTX
 	movlw 's'
-	call putTXS
+	call putTX
 	movlw 0x0D
-	call putTXS
+	call putTX
 	movlw 0x0A
-	call putTXS
+	call putTX
 
 
-	; act int on TMR6
+	; act ints
 	banksel PIE1
 	clrf PIE1
 	clrf PIE2
@@ -440,8 +333,6 @@ skipStartPause:
 
 	banksel 0
 	bcf PIR3,3		; TMR6IF
-	banksel PIE3
-	bsf PIE3,3		; TMR6IE
 
 	banksel 0
 	clrf l_Dl
@@ -467,11 +358,11 @@ mainloop:
 ;	movf l_bufRXin,0
 ;	addlw 'a'
 ;	;movlw '.'
-;	call putTXS
+;	call putTX
 
 ;	movf l_Dl,0
 ;	call $+3
-;	call putTXS
+;	call putTX
 ;	bra noPutTXS
 ;	andlw 0x07
 ;	brw
@@ -507,7 +398,7 @@ noPutTXS:
 	clrf ml_timeCount
 	incf l_secondsH,1
 	movlw '.'
-	call putTXS
+	call putTX
 	; calc 5.125*timecount
 	lslf ml_timeCount,0
 	lslf WREG,0
@@ -553,6 +444,13 @@ noPutTXS:
 	movf TMR0,0
 	movlw l_lastRXtime0
 
+;		; have input frame?
+;		call haveRX
+;		btfsc STATUS,Z
+;		bra $+3
+;		addlw 'a'
+;		call putTX
+
 	; have input frame?
 	call haveRX
 	sublw .25-1
@@ -571,16 +469,16 @@ processRXframe:
 	; data is in l_framBuf1
 
 ;	movlw 'H'
-;	call putTXS
+;	call putTX
 ;	movlw 0x0D
-;	call putTXS
+;	call putTX
 ;	movlw 0x0A
-;	call putTXS
+;	call putTX
 
 	; run decoder
 	movf l_parityErrorsRX,0
-	btfss STATUS,Z
-	bsf l_framBuf1+.23,2	; framing error bit
+;	btfss STATUS,Z
+;	bsf l_framBuf1+.23,2	; framing error bit
 	movlw low l_servoValuesBuffer
 	movwf FSR1L
 	movlw high l_servoValuesBuffer
@@ -588,6 +486,7 @@ processRXframe:
 	call decodeSbusFrame	;; takes roughly 230
 	movwf ml_temp2
 	call testRXTX	; the decoder took some time...
+
 	movf ml_temp2,0
 	btfsc STATUS,Z
 	bra decodedBad
@@ -623,16 +522,6 @@ processRXframe:
 	clrwdt
 
 
-
-
-	; re-encode into TX buffer
-	movlw low l_servoValuesBuffer
-	movwf FSR1L
-	movlw high l_servoValuesBuffer
-	movwf FSR1H
-	call encodeSbusFrame
-
-
 	; tell TX to go
 	clrf l_bufTXout
 	movlw .25
@@ -654,11 +543,11 @@ processRXframe:
 ;	movlw high l_servoValuesBuffer
 ;	addwfc FSR1H,1
 ;	moviw 1[FSR1]
-;	call putHexTXS_half
+;	call putHexTX_half
 ;	moviw 0[FSR1]
-;	call putHexTXS
+;	call putHexTX
 ;	movlw 0x20
-;	call putTXS
+;	call putTX
 ;
 ;	incf ml_temp3,1
 ;	movlw 4
@@ -666,21 +555,31 @@ processRXframe:
 ;	btfss STATUS,C
 ;	bra debugoutputSome
 
-	movf l_flippinT,0
-	call putHexTXS
+	banksel l_servoValuesBuffer
+	movf l_servoValuesBuffer+.1,0
+	banksel 0
+	call putHexTX
+	banksel l_servoValuesBuffer
+	movf l_servoValuesBuffer+.0,0
+	banksel 0
+	call putHexTX
 	movlw 0x20
-	call putTXS
-	movf l_flippinC,0
-	call putHexTXS
+	call putTX
+	banksel l_servoValuesBuffer
+	movf l_servoValuesBuffer+.3,0
+	banksel 0
+	call putHexTX
+	banksel l_servoValuesBuffer
+	movf l_servoValuesBuffer+.2,0
+	banksel 0
+	call putHexTX
 	movlw 0x20
-	call putTXS
-	movf l_modeSwitch,0
-	call putHexTXS
+	call putTX
 
 	movlw 0x0D
-	call putTXS
+	call putTX
 	movlw 0x0A
-	call putTXS
+	call putTX
 
 
 	clrf l_bufRXin	; drop all.
@@ -691,15 +590,15 @@ processRXframe:
 	bra decodedDone
 decodedBad:
 	movlw 'B'
-	call putTXS
+	call putTX
 	movlw 'a'
-	call putTXS
+	call putTX
 	movlw 'd'
-	call putTXS
+	call putTX
 	movlw 0x0A
-	call putTXS
+	call putTX
 	movlw 0x0A
-	call putTXS
+	call putTX
 
 	bra decodedDone
 
@@ -707,20 +606,20 @@ decodedDone:
 	return
 
 
-putHexTXS_half:
+putHexTX_half:
 	movwf ml_temp2
 	bra $+8
-putHexTXS:
+putHexTX:
 	movwf ml_temp2
 	lsrf WREG,0
 	lsrf WREG,0
 	lsrf WREG,0
 	lsrf WREG,0
 	call getHexDigit
-	call putTXS
+	call putTX
 	movf ml_temp2,0
 	call getHexDigit
-	goto putTXS
+	goto putTX
 
 getHexDigit:
 	andlw 0x0F
@@ -866,7 +765,6 @@ testRXTX:
 #include "servoFilter.asm"
 #include "sbusFrameCodec.asm"
 #include "uartBuffer.asm"
-#include "uartBufferS.asm"
 
 
 	end

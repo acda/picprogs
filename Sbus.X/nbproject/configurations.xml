@@ -14,7 +14,6 @@
                    projectFiles="true">
       <itemPath>main.asm</itemPath>
       <itemPath>uartBuffer.asm</itemPath>
-      <itemPath>uartBufferS.asm</itemPath>
       <itemPath>sbusFrameCodec.asm</itemPath>
       <itemPath>servoPWM.asm</itemPath>
       <itemPath>servoFilter.asm</itemPath>
@@ -150,14 +149,6 @@
         </mpasmsuite>
       </item>
       <item path="uartBuffer.asm" ex="true" overriding="false">
-        <MPASMWIN-AS>
-        </MPASMWIN-AS>
-        <MPASMWIN-LD>
-        </MPASMWIN-LD>
-        <mpasmsuite>
-        </mpasmsuite>
-      </item>
-      <item path="uartBufferS.asm" ex="true" overriding="false">
         <MPASMWIN-AS>
         </MPASMWIN-AS>
         <MPASMWIN-LD>
