@@ -1,0 +1,28 @@
+# active RC filters: http://http://sound.westhost.com/articles/active-filters.htm
+
+# RLC Filter:
+input low-pass 40k:
+Reihe: C 220n + L2.2m + R 1k .
+down: C 6.8n || R 220k
+
+output high-pass 18k:
+Reihe: C 33n + R 1k
+down: L 2.2m
+
+# print a series of L-C pairs
+import math
+f = 40000.0
+w = math.pi*2.0*f
+for x in xrange(10,30):
+L = 1.0e-4 * x
+C = 1.0/(w*w*L)
+print "L=%.3e C=%.3e" % (L,C)
+
+
+# calc RC freq
+import math
+f = 40000.0
+w = math.pi*2.0*f
+R = 500
+C = 1.0/(R*w)
+print "R=%.3e C=%.3e f=%.3e" % (R,C,f)

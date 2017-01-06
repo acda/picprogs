@@ -1,0 +1,139 @@
+#!/usr/bin/env python
+
+"""
+ some hits:
+
+poly: 0x1FFED
+poly: 0x1FFEB
+poly: 0x1FDBF
+poly: 0x1FB7F
+poly: 0x1F7FB
+poly: 0x1F7EF
+poly: 0x1EFF7
+poly: 0x1EFDF
+poly: 0x1DFEF
+poly: 0x1BFDF
+poly: 0x1AFFF
+poly: 0x16FFF
+poly: 0x1FFA5
+poly: 0x1FF71
+poly: 0x1FF39
+poly: 0x1FF35
+poly: 0x1FF33
+poly: 0x1FEE9
+poly: 0x1FDB3
+poly: 0x1FD9B
+poly: 0x1FD75
+poly: 0x1FD3D
+poly: 0x1FCED
+poly: 0x1FC9F
+poly: 0x1FBF1
+poly: 0x1FBCD
+poly: 0x1FBCB
+poly: 0x1FB6D
+poly: 0x1FB5B
+poly: 0x1FB57
+poly: 0x1FAE7
+poly: 0x1FA7D
+poly: 0x1F9BB
+poly: 0x1F7CD
+poly: 0x1F7B5
+poly: 0x1F7B3
+poly: 0x1F74F
+poly: 0x1F6F9
+poly: 0x1F6F3
+poly: 0x1F6EB
+poly: 0x1F6DD
+poly: 0x1F69F
+poly: 0x1F5D7
+poly: 0x1F4FB
+poly: 0x1F3CF
+poly: 0x1F3AF
+poly: 0x1F2DF
+poly: 0x1F27F
+poly: 0x1EFE3
+poly: 0x1EFB9
+poly: 0x1EFB3
+poly: 0x1EF97
+poly: 0x1EF57
+poly: 0x1EF3D
+poly: 0x1EEDB
+poly: 0x1EEAF
+poly: 0x1EDDB
+poly: 0x1EDBB
+poly: 0x1EBEB
+poly: 0x1EBCF
+poly: 0x1EB9F
+poly: 0x1EB7B
+poly: 0x1EAFD
+poly: 0x1EAEF
+poly: 0x1E9FD
+poly: 0x1E9FB
+poly: 0x1E7BB
+poly: 0x1E7AF
+poly: 0x1E79F
+poly: 0x1E5DF
+poly: 0x1DFCD
+poly: 0x1DF73
+poly: 0x1DF57
+poly: 0x1DF3B
+poly: 0x1DF37
+poly: 0x1DEBD
+poly: 0x1DE7B
+poly: 0x1DBF3
+poly: 0x1DBDD
+poly: 0x1DBD7
+poly: 0x1D9FB
+poly: 0x1D9F7
+poly: 0x1D7DB
+poly: 0x1D7B7
+poly: 0x1D77D
+poly: 0x1D75F
+poly: 0x1D5F7
+poly: 0x1D5EF
+poly: 0x1D5BF
+poly: 0x1D3EF
+poly: 0x1CEBF
+"""
+
+
+# try out CRC16 regs
+
+def bitcount(v):
+	v = int(v)
+	v = (v&0x55555555) + ((v>>1)&0x55555555)
+	v = (v&0x33333333) + ((v>>2)&0x33333333)
+	v = (v&0x0F0F0F0F) + ((v>>4)&0x0F0F0F0F)
+	v = (v&0x00FF00FF) + ((v>>8)&0x00FF00FF)
+	v = (v&0x0000FFFF) + ((v>>16)&0x0000FFFF)
+	return int(v)
+
+refval = ((1+0xFFFF)*0xFFFF)>>1
+
+def trypoly(p):
+	a = 0xFFFF
+	summ = 0
+	for i in xrange(0xFFFF):
+		a = (a<<1)
+		if (a>=0x10000):
+			a = a^p
+		summ += a
+
+	#print summ
+	return refval==summ
+
+tries = list()
+for i in xrange(0x10003,0x20000,2):
+	bc = bitcount(i)
+	if (i&1)==1:
+		tries.append((bc,i))
+tries.sort()
+tries.reverse()
+tries = list( it[1] for it in tries )
+
+print "," . join("0x%04X"%v for v in tries)
+
+for i in xrange(8192):
+	if trypoly(tries[i]):
+		print "poly: 0x%X" % tries[i]
+

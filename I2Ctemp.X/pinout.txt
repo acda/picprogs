@@ -1,0 +1,17 @@
+
+
+Pinout fuer Temperatur
+
+
+
+ 5       Gnd
+ 6 (B0)  heartbeat
+ 7 (B1)  I2C dat
+ 8 (B2)  Uart RX
+10 (B4)  I2C clk
+11 (B5)  Uart TX
+12 (B6)  prog clk
+13 (B7)  prog dat
+14       +5
+17 (A0)  LED strip
+18 (A1)  LED strip (2)
