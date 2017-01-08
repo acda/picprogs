@@ -118,7 +118,7 @@ l_servoPWMdata = 0x2074		; size 16*3 .. 0x20A4
 bufferRX = (l_framBuf1)
 bufferRXend = (l_framBuf1+.28)
 bufferTX = 0x20F0
-bufferTXend = 0x2228
+bufferTXend = 0x21E8
 ; next buffer was up to 0x2228
 
 

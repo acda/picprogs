@@ -32,10 +32,10 @@ decodeSbusFrame:
 	andlw 0x07
 	movwi FSR1++
 	;channel #1, bytes 2..3 , shift 3 bits.
-	lsrf l_framBuf1+.2,0
-	movwf l_Al
-	rrf l_framBuf1+.3,0
+	lsrf l_framBuf1+.3,0
 	movwf l_Ah
+	rrf l_framBuf1+.2,0
+	movwf l_Al
 	lsrf l_Ah,1
 	rrf l_Al,1
 	lsrf l_Ah,1
@@ -61,20 +61,20 @@ decodeSbusFrame:
 	andlw 0x07
 	movwi FSR1++
 	;channel #3, bytes 5..6 , shift 1 bits.
-	lsrf l_framBuf1+.5,0
-	movwf l_Al
-	rrf l_framBuf1+.6,0
+	lsrf l_framBuf1+.6,0
 	movwf l_Ah
+	rrf l_framBuf1+.5,0
+	movwf l_Al
 	movf l_Al,0
 	movwi FSR1++
 	movf l_Ah,0
 	andlw 0x07
 	movwi FSR1++
 	;channel #4, bytes 6..7 , shift 4 bits.
-	lsrf l_framBuf1+.6,0
-	movwf l_Al
-	rrf l_framBuf1+.7,0
+	lsrf l_framBuf1+.7,0
 	movwf l_Ah
+	rrf l_framBuf1+.6,0
+	movwf l_Al
 	lsrf l_Ah,1
 	rrf l_Al,1
 	lsrf l_Ah,1
@@ -98,10 +98,10 @@ decodeSbusFrame:
 	andlw 0x07
 	movwi FSR1++
 	;channel #6, bytes 9..10 , shift 2 bits.
-	lsrf l_framBuf1+.9,0
-	movwf l_Al
-	rrf l_framBuf1+.10,0
+	lsrf l_framBuf1+.10,0
 	movwf l_Ah
+	rrf l_framBuf1+.9,0
+	movwf l_Al
 	lsrf l_Ah,1
 	rrf l_Al,1
 	movf l_Al,0
@@ -110,10 +110,10 @@ decodeSbusFrame:
 	andlw 0x07
 	movwi FSR1++
 	;channel #7, bytes 10..11 , shift 5 bits.
-	lsrf l_framBuf1+.10,0
-	movwf l_Al
-	rrf l_framBuf1+.11,0
+	lsrf l_framBuf1+.11,0
 	movwf l_Ah
+	rrf l_framBuf1+.10,0
+	movwf l_Al
 	lsrf l_Ah,1
 	rrf l_Al,1
 	lsrf l_Ah,1
@@ -138,10 +138,10 @@ decodeSbusFrame:
 	andlw 0x07
 	movwi FSR1++
 	;channel #9, bytes 13..14 , shift 3 bits.
-	lsrf l_framBuf1+.13,0
-	movwf l_Al
-	rrf l_framBuf1+.14,0
+	lsrf l_framBuf1+.14,0
 	movwf l_Ah
+	rrf l_framBuf1+.13,0
+	movwf l_Al
 	lsrf l_Ah,1
 	rrf l_Al,1
 	lsrf l_Ah,1
@@ -167,20 +167,20 @@ decodeSbusFrame:
 	andlw 0x07
 	movwi FSR1++
 	;channel #11, bytes 16..17 , shift 1 bits.
-	lsrf l_framBuf1+.16,0
-	movwf l_Al
-	rrf l_framBuf1+.17,0
+	lsrf l_framBuf1+.17,0
 	movwf l_Ah
+	rrf l_framBuf1+.16,0
+	movwf l_Al
 	movf l_Al,0
 	movwi FSR1++
 	movf l_Ah,0
 	andlw 0x07
 	movwi FSR1++
 	;channel #12, bytes 17..18 , shift 4 bits.
-	lsrf l_framBuf1+.17,0
-	movwf l_Al
-	rrf l_framBuf1+.18,0
+	lsrf l_framBuf1+.18,0
 	movwf l_Ah
+	rrf l_framBuf1+.17,0
+	movwf l_Al
 	lsrf l_Ah,1
 	rrf l_Al,1
 	lsrf l_Ah,1
@@ -204,10 +204,10 @@ decodeSbusFrame:
 	andlw 0x07
 	movwi FSR1++
 	;channel #14, bytes 20..21 , shift 2 bits.
-	lsrf l_framBuf1+.20,0
-	movwf l_Al
-	rrf l_framBuf1+.21,0
+	lsrf l_framBuf1+.21,0
 	movwf l_Ah
+	rrf l_framBuf1+.22,0
+	movwf l_Al
 	lsrf l_Ah,1
 	rrf l_Al,1
 	movf l_Al,0
@@ -216,10 +216,10 @@ decodeSbusFrame:
 	andlw 0x07
 	movwi FSR1++
 	;channel #15, bytes 21..22 , shift 5 bits.
-	lsrf l_framBuf1+.21,0
-	movwf l_Al
-	rrf l_framBuf1+.22,0
+	lsrf l_framBuf1+.22,0
 	movwf l_Ah
+	rrf l_framBuf1+.21,0
+	movwf l_Al
 	lsrf l_Ah,1
 	rrf l_Al,1
 	lsrf l_Ah,1

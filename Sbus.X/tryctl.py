@@ -5,11 +5,11 @@
 # format of sbus:
 
 
-
-import sys
-import time
+import math
 import serial
+import sys
 import threading
+import time
 
 
 baudrate = 115200
@@ -61,12 +61,26 @@ def proc(t,dt):
 #	dat = (''.join(ol))+"SEQ-END."
 #	del ol
 
-	v = int(t*4096) & 2047
-	v = (v-1023.5)/1023.5
-	v *= 0.5
-	dat = build_sbus_frame((v,0.0,0.0,0.0))
+	v1 = int(t*4096) & 2047
+	v1 = (v1-1023.5)/1023.5
+	v1 *= 0.5
 
-	print "sending: " + repr(dat)[:70]
+	v2 = int(t*512) & 4095
+	if v2>=2048: v2=4096-v2
+	v2 = (v2-1023.5)/1023.5
+	v2 *= 0.5
+
+	v3 = int(t*65536.0) & 0xFFFF
+	v3 = v3*(math.pi/32768.0)
+	v4 = 0.5 * math.sin(v3)
+	v3 = 0.5 * math.cos(v3)
+
+
+	dat = build_sbus_frame((v1,v2,v3,v4))
+#	dat = build_sbus_frame((0.0,0.0,0.0,v2))
+
+	if t<2.0:
+		print "sending: " + repr(dat)[:70]
 	ser.write(dat)
 
 
