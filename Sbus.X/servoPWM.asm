@@ -100,6 +100,7 @@ _pSPsort_nswp:
 	movwf FSR0H
 	clrf l_Bl
 _pSP_up:
+	; this loop is timed to have exactly 64 clocks.
 	moviw 0[FSR0]
 	call servoPinUp
 	movlw 0x40-.23

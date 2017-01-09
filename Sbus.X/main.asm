@@ -595,7 +595,7 @@ processRXframe:
 	; filter
 	call filterServoValues
 
-	; place one on PWM
+	; place one on hardware-PWM
 	banksel l_servoValuesBuffer
 	movf l_servoValuesBuffer+4,0
 	movwf ml_temp
@@ -759,13 +759,13 @@ __pop_cuthigh:
 	rlf ml_temp2,1
 
 
+;; wait for timer to reach almost end.
+;	banksel TMR4
+;	movlw 0xEE
+;	subwf TMR4,0
+;	btfsc STATUS,C
+;	bra $-3
 
-
-	banksel TMR4
-	movlw 0xEE
-	subwf TMR4,0
-	btfsc STATUS,C
-	bra $-3
 	banksel CCP4CON
 	lsrf ml_temp2,1
 	rrf ml_temp,0

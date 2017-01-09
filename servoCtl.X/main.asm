@@ -238,7 +238,16 @@ skipPauseOsc:
 	movlw 0x05  ; prescale=1:4, enable
 	movwf T4CON
 
+	; timer 6 is timer for getting clean 200 PWM outputs per second. (or 100)
+	; that is 40000 ticks/loop. 
+	banksel TMR6
+	movlw .125 ; 125 is good divisor for powers of ten.
+	movwf PR6
+	movlw 0x07+8*(5-1)  ; prescale=1:64, enable, postscale is 5 for 200Hz, 10 for 100Hz.
+	movwf T6CON
+
 	; timer 0 is the timer for detecting gaps in the S-bus bursts.
+	banksel 0
 	bcf INTCON,5	; disable int on timer 0
 	banksel OPTION_REG
 	movf OPTION_REG,0
@@ -247,10 +256,6 @@ skipPauseOsc:
 	movwf OPTION_REG
 	banksel TMR0
 	; no enable bit??? already running?
-
-	banksel TXREG
-	movlw 'D'
-	movwf TXREG
 
 	; CCP4 as PWM on timer4
 	banksel CCPTMRS
@@ -350,7 +355,7 @@ skipStartPause:
 mainloop:
 	banksel 0
 
-	movf l_Dl,0			; if secondsH == Dl, inc Dl and put something,
+	movf l_Dl,0			; if secondsH == Dl, inc Dl and output something,
 	subwf l_secondsH,0
 	btfss STATUS,Z
 	bra noPutTXS
@@ -459,6 +464,32 @@ noPutTXS:
 	call processRXframe
 
 
+	; timer6 expired? output servo pulses?
+	banksel 0
+	btfss PIR3,3		; TMR6IF
+	bra noSendServoPwm
+	bcf PIR3,3		; TMR6IF
+	; pick up how much T6 is over already.
+	; assuming mainloop time of at most 2k cycles. hopefully. So calc 64*(.32-TMR6) and delay so much to sync.
+	banksel TMR6
+	movf TMR6,0
+	sublw .32
+	btfss STATUS,C
+	movlw 0
+	banksel 0
+	movwf l_Ah ; multiply with 64 (prescaler)
+	clrf l_Al,1
+	lsrf l_Ah,1
+	rrf l_Al,1
+	lsrf l_Ah,1
+	rrf l_Al,1
+	call delay_Alh
+
+	;call prepareAndSendServoPWM
+
+
+
+noSendServoPwm:
 
 	bra mainloop
 
@@ -491,7 +522,7 @@ processRXframe:
 	btfsc STATUS,Z
 	bra decodedBad
 
-	; place one on PWM
+	; place one on hardware-PWM
 	banksel l_servoValuesBuffer
 	movf l_servoValuesBuffer+4,0
 	movwf ml_temp
@@ -519,14 +550,7 @@ processRXframe:
 	clrwdt
 
 
-	; tell TX to go
-	clrf l_bufTXout
-	movlw .25
-	movwf l_bufTXin
-
-
 	call testRXTX
-	call testTX
 
 
 
@@ -655,13 +679,13 @@ __pop_cuthigh:
 	rlf ml_temp2,1
 
 
+;; wait for timer to reach almost end.
+;	banksel TMR4
+;	movlw 0xEE
+;	subwf TMR4,0
+;	btfsc STATUS,C
+;	bra $-3
 
-
-	banksel TMR4
-	movlw 0xEE
-	subwf TMR4,0
-	btfsc STATUS,C
-	bra $-3
 	banksel CCP4CON
 	lsrf ml_temp2,1
 	rrf ml_temp,0
@@ -690,17 +714,19 @@ delay_Alh:
 	; does not include setup-time for l_Al/l_Ah.
 	; minimum is 13 cycles.
 	; if request is too short, returns number of cycles over.
-	movlw 0xE0
+	; if sufficiently large, calls testRX with W=0 (constant time variant)
+
+	movlw 0xC0
 	andwf l_Al,0
 	iorwf l_Ah,0
 	btfss STATUS,Z
 	bra delay_Alh_high
 	; wenn reaching this point, we already used 7 not counted (incl 2 for call-in)
 	movf l_Al,0
-	xorlw 0x1F
-	brw		; with brw and return, have a total of 7+2+2+2=14 not counted.
+	xorlw 0x3F
+	brw		; with brw and return, have a total of 7+2+2+2=13 not counted.
 
-	nop
+	nop ; param = 63
 	nop
 	nop
 	nop
@@ -709,6 +735,7 @@ delay_Alh:
 	nop
 	nop
 
+	nop ; param = 55
 	nop
 	nop
 	nop
@@ -716,18 +743,53 @@ delay_Alh:
 	nop
 	nop
 	nop
-	nop	; a l_Al of 16 would hop here. need 3 nops then
 
+	nop ; param = 47
 	nop
 	nop
-	retlw 0x00
+	nop
+	nop
+	nop
+	nop
+	nop
+
+	nop ; param = 39
+	nop
+	nop
+	nop
+	nop
+	nop
+	nop
+	nop
+
+	nop ; param = 31
+	nop
+	nop
+	nop
+	nop
+	nop
+	nop
+	nop
+
+	nop ; param = 23
+	nop
+	nop
+	nop
+	nop
+	nop
+	nop
+	nop	; a param of 16 would hop here. need 3 nops then
+
+	nop ; param = 15
+	nop
+	retlw 0x00 ; param = 13
 	retlw 0x01
 	retlw 0x02
 	retlw 0x03
 	retlw 0x04
 	retlw 0x05
 
-	retlw 0x06
+	retlw 0x06 ; param = 7
 	retlw 0x07
 	retlw 0x08
 	retlw 0x09
@@ -737,8 +799,13 @@ delay_Alh:
 	retlw 0x0D
 
 	retlw 0x7F
+	retlw 0x7F
 delay_Alh_high:
-	movlw 0x0C
+	; Do a call to testRX
+	movlw 0
+	call testRX
+
+	movlw .13 + testRX__exectime   ; this must be <= 13, the minimum delay execution time.
 	subwf l_Al,1
 	movlw 0
 	subwfb l_Ah,1
@@ -748,6 +815,7 @@ delay_Alh_high:
 
 testRXTX:
 	call testTX
+	movlw 1
 	call testRX
 	btfss WREG,0
 	bra $+3

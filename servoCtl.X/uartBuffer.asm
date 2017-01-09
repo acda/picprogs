@@ -1,4 +1,9 @@
 
+; uart buffer functions
+; testRX does not test for buffer overrun
+; putTX will drop if full and return 0.
+; buffersize max 255 bytes (one-byte in and out indices)
+
 
 haveRX:
 	; Check if have any data in RX ringbuffer, without picking up. Returns number of bytes.
@@ -74,31 +79,43 @@ testTX:
 	retlw 1
 
 testRX:
+testRX__exectime = .23
 	; Check if there is a byte to transfer from RX hardware to ringbuffer
-	; max 21
+	; max 2+21
+	; input: If W!=0, return quickly if no data available.
+	;        if W==0, do wait so execution time is always exactly same.
 	banksel 0
 	btfss PIR1,5	; RCIF
-	retlw 0
-	movlw bufferRXend-bufferRX
-	subwf l_bufRXin,0
-	btfsc STATUS,C
-	decf l_bufRXin,1
+	bra testRX_resttime
 	movlw high bufferRX
 	movwf FSR0H
 	movlw low bufferRX
 	addwf l_bufRXin,0
 	movwf FSR0L
+	btfsc STATUS,C
+	incf FSR0H,1
 	banksel RCREG
 	movf RCREG,0
 	movwi 0[FSR0]
-	call numBits
-	xorwf RCSTA,0
 	banksel 0
-	; have parity in WREG #0. For S-Bus, it should be 0.
-	andlw 1
-	addwf l_parityErrorsRX,1
+	; inc in, reset if reach end.
 	incf l_bufRXin,1
+	movlw bufferRXend-bufferRX
+	subwf l_bufRXin,0
+	btfsc STATUS,C
+	clrf l_bufRXin,1
 	retlw 1
+testRX_resttime:
+	; no data. waste remaining time?
+	movf WREG,0
+	btfss STATUS,Z
+	retlw 0	; do not adjust.
+	; waste time to make execution time constant.
+	; here, have already used 2+7 clocks (2 for call-in) two for retlw. waste 21-9 clocks
+	movlw (.21-.9)/3 ; works if value is divisable by three. otherwise add nops.
+	decfsz WREG,1
+	bra $-1
+	retlw 0
 
 
 
