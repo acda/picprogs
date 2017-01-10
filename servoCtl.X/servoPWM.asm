@@ -124,7 +124,7 @@ _pSP_up:
 	call testRX
 
 	; delay rest to get this loop to 64.
-	movlw 0x40-.23-testRX__exectime
+	movlw 0x40-.23-.23  ; ..... should be testRX__exectime
 	movwf l_Al
 	clrf l_Ah
 	call delay_Alh

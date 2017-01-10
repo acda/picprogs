@@ -34,7 +34,7 @@ def main(args):
 
 	t = 0.0
 	while True:
-		dt = 0.018
+		dt = 0.05
 		proc(t,dt)
 		t = t+dt
 		time.sleep(dt)
@@ -76,43 +76,63 @@ def proc(t,dt):
 	v3 = 0.5 * math.cos(v3)
 
 
-	dat = build_sbus_frame((v1,v2,v3,v4))
-#	dat = build_sbus_frame((0.0,0.0,0.0,v2))
+	dat = build_frame((v1,v2,v3,v4))
+#	dat = build_frame((0.0,0.0,0.0,v2))
+#	dat = "S\x00\x0C3456789abcdef0123456789ABCDEF0123456C"
 
-	if t<2.0:
-		print "sending: " + repr(dat)[:70]
+#	if t<2.0:
+#		print "sending: " + repr(dat)[:70]
 	ser.write(dat)
 
 
 # build frame. values are -1.0 .. 1.0
-def build_sbus_frame(values):
+def build_frame(values):
 	res = list()
-	res.append(chr(15))
-	bits=0
-	nbits=0
-	for i in xrange(16):
-		val = 0.0
+	res.append('S'+chr(0)+chr(12))
+	for i in xrange(12):
+		val1,val2 = 0.0,0.0
 		if i<len(values):
-			val = values[i]
-		val = int((val+1.0)*1023.5)
-		val = min(max(val,0),2047)
-		bits += (val<<nbits)
-		nbits += 11
-		while nbits>=8:
-			res.append(chr(bits&255))
-			bits = bits>>8
-			nbits -= 8
-	val = 0
-	if len(values)>=16 and values[16]>0.0:
-		val += 1
-	if len(values)>=17 and values[17]>0.0:
-		val += 1
-	res.append(chr(val))
+			val1 = values[i]
+		val1 = int((val1+1.0)*2047.5)
+		val1 = min(max(val1,0),4095)
+		val2 = int((val2+1.0)*2047.5)
+		val2 = min(max(val2,0),4095)
 
-	val = 0
-	res.append(chr(val))
+		res.append( chr(val1>>4) + chr((val1&15)+(val2>>8)) + chr(val2&255) )
 
-	return ''.join(res)
+	res = ''.join(res)
+	return res + calcCRC8(res)
+
+
+CRCtab = None
+def calcCRC8(bytes):
+	global CRCtab
+	if CRCtab is None:
+		lt,dummy = make_looptable()
+		CRCtab = lt
+	sr=0xFF
+	for b in bytes:
+		sr = CRCtab[sr^ord(b)]
+	return chr(sr)
+
+
+def make_looptable():
+	looptab = list()
+	outtab = list()
+	poly = 0x1FA & 0xFF
+	for t in xrange(256):
+		sr=t
+		outVal=0
+		for s in xrange(8):
+			outVal = outVal<<1
+			if (sr&1):
+				sr=(sr>>1)^poly
+				outVal+=1
+			else:
+				sr=sr>>1
+		looptab.append(sr)
+		outtab.append(outVal)
+	return looptab,outtab
 
 
 if __name__=='__main__':

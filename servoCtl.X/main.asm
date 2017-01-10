@@ -32,7 +32,8 @@ l_Ch             = 0x25
 l_Dl             = 0x26
 l_Dh             = 0x27
 
-l_lastRXtime0   = 0x28
+;l_lastRXtime0   = 0x28
+l_CRCstate      = 0x29
 
 l_secondsL       = 0x2A
 l_secondsH       = 0x2B
@@ -40,11 +41,11 @@ l_secondsH       = 0x2B
 l_bufTXin        = 0x2C
 l_bufTXout       = 0x2D
 l_bufRXin        = 0x2E
+l_bufRXout       = 0x2F
 
-l_lopSBfram   = 0x2F
+l_lopSBfram   = 0x30  ; ..... what is this??
 
-l_nextMeasure    = 0x30	; compared against l_secondsH
-l_parityErrorsRX = 0x31
+l_nextMeasure    = 0x31	; compared against l_secondsH
 
 l_lastFrameBad   = 0x32
 l_signalLost     = 0x33
@@ -55,9 +56,12 @@ l_flippinT       = 0x35
 l_modeSwitch    = 0x36
 l_filterFirst   = 0x37
 
-l_framBuf1        = 0x38 ; .28 bytes
-l_framBuf2        = 0x54 ; .28 bytes
+l_framBufCnt = 0x38
+l_framBuf        = 0x39	; for processing RX frames
+l_framBufEnd     = 0x70 ; max 0x37 bytes
 
+l_framBuf1 = l_framBuf ; ...... remove this along with sbus-decoder.
+l_framBuf2 = l_framBuf ; ...... remove this along with sbus-decoder.
 
 portA_pwm = 4
 
@@ -100,26 +104,15 @@ LATS16 = LATA
 portbit_S16 = 5
 
 
+; buffers. start at second bank 0x2050 , up to end @ 0x23F0
 
-; on 1k-mem
-;bufferTX = 0x2200
-;bufferTXend = 0x2280
-;bufferRX = 0x2280
-;bufferRXend = 0x2300
-;bufferTXS = 0x2300
-;bufferTXSend = 0x2378
-;bufferRXS = 0x2378
-;bufferRXSend = 0x23F0
+l_servoValuesBuffer = 0x0A0	; 4*.16 bytes    0x2050 .. 0x2090
+l_servoPWMdata = 0x2090		; size 16*3 .. 0x20C0
 
-; on 256-b mem
-l_servoValuesBuffer = 0x0A0	; 2*.18 bytes    0x2050 .. 0x2074
-l_servoPWMdata = 0x2074		; size 16*3 .. 0x20A4
-
-bufferRX = (l_framBuf1)
-bufferRXend = (l_framBuf1+.28)
-bufferTX = 0x20F0
-bufferTXend = 0x21E8
-; next buffer was up to 0x2228
+bufferRX = 0x20C0
+bufferRXend = 0x2180
+bufferTX = 0x2180
+bufferTXend = 0x2240
 
 
 
@@ -144,6 +137,9 @@ skipToSetup:
 	banksel OSCCON
 	movwf OSCCON
 	banksel 0
+
+
+
 
 	movlb .31
 	movf 0x20,0	; PICsim-control in 0x0FA0
@@ -207,14 +203,12 @@ skipPauseOsc:
 	; UART TX
 	banksel BAUDCON
 	banksel TXSTA
-;	bsf TXSTA,6	; TX9 (enable 9-bit)
 	bsf TXSTA,5	; TXEN (go)
 	banksel RCSTA
 	bsf RCSTA,7	; SPEN
 
 	; UART RX setup.
 	banksel RCSTA
-;	bsf RCSTA,6 ; RX9 (enable 9-bit)
 	bsf RCSTA,4 ; CREN (go!)
 	banksel PIE1
 	bcf PIE1,5	; without intrr
@@ -246,16 +240,6 @@ skipPauseOsc:
 	movlw 0x07+8*(5-1)  ; prescale=1:64, enable, postscale is 5 for 200Hz, 10 for 100Hz.
 	movwf T6CON
 
-	; timer 0 is the timer for detecting gaps in the S-bus bursts.
-	banksel 0
-	bcf INTCON,5	; disable int on timer 0
-	banksel OPTION_REG
-	movf OPTION_REG,0
-	andlw 0xD0
-	iorlw 0x06	; TMR0CS=0 , PSA=0, PS=1:128
-	movwf OPTION_REG
-	banksel TMR0
-	; no enable bit??? already running?
 
 	; CCP4 as PWM on timer4
 	banksel CCPTMRS
@@ -299,14 +283,14 @@ skipStartPause:
 	clrf l_bufTXin
 	clrf l_bufTXout
 	clrf l_bufRXin
-	clrf l_parityErrorsRX
+	clrf l_bufRXout
 	clrf ml_TXSbitcount
 	clrf ml_timeCount
 	clrf l_secondsL
 	clrf l_secondsH
-	clrf l_parityErrorsRX
 	clrf l_flippinC
 	clrf l_flippinT
+	clrf l_framBufCnt
 	movlw 1
 	movwf l_modeSwitch
 	movlw .10
@@ -379,6 +363,20 @@ mainloop:
 ;	retlw '.'
 ;	retlw 0x0D
 ;	retlw 0x0A
+
+	; adjust servos a little.
+	movlw low l_servoValuesBuffer
+	movwf FSR0L
+	movlw high l_servoValuesBuffer
+	movwf FSR0H
+	movf l_secondsH,0
+	andlw .3
+	addlw .2
+	movwi 1[FSR0]
+	movlw 0x84
+	movwi 0[FSR0]
+
+
 noPutTXS:
 
 
@@ -433,21 +431,33 @@ noPutTXS:
 	; check RX and TX flags
 	call testRXTX
 
-	; timeout?		; one RX byte every 7.5 TMR0 ticks. timeout at 20.
-	movf l_lastRXtime0,0
-	subwf TMR0,0
-	sublw .20
-	btfsc STATUS,C
-	bra $+5
-	clrf l_bufRXin	; timeout. drop all.
-	clrf l_parityErrorsRX
-	banksel RCSTA
-	btfsc RCSTA,1	; OERR
-	bcf RCSTA,4		; CREN
-	bsf RCSTA,4		; CREN
+	; pick up input data to recv buffer.
 	banksel 0
-	movf TMR0,0
-	movlw l_lastRXtime0
+	movlw high l_framBuf
+	movwf FSR1H
+	movlw low l_framBuf
+	movwf FSR1L
+	movf l_framBufCnt,0
+	addwf FSR1L,1
+	btfsc STATUS,C
+	incf FSR1H,1
+	; get data, up to packet-size of .40
+	movlw .10
+	call getRX_many
+	addwf l_framBufCnt,1
+	movlw .40
+	subwf l_framBufCnt,0
+	btfsc STATUS,C
+	call checkRXdata
+
+	; check RX and TX flags
+	call testRXTX
+
+
+
+
+_tytRx_rest:
+_tytRx_done:
 
 ;		; have input frame?
 ;		call haveRX
@@ -455,13 +465,6 @@ noPutTXS:
 ;		bra $+3
 ;		addlw 'a'
 ;		call putTX
-
-	; have input frame?
-	call haveRX
-	sublw .25-1
-	btfss STATUS,C
-
-	call processRXframe
 
 
 	; timer6 expired? output servo pulses?
@@ -478,14 +481,14 @@ noPutTXS:
 	movlw 0
 	banksel 0
 	movwf l_Ah ; multiply with 64 (prescaler)
-	clrf l_Al,1
+	clrf l_Al
 	lsrf l_Ah,1
 	rrf l_Al,1
 	lsrf l_Ah,1
 	rrf l_Al,1
 	call delay_Alh
 
-	;call prepareAndSendServoPWM
+	call prepareAndSendServoPWM
 
 
 
@@ -493,6 +496,170 @@ noSendServoPwm:
 
 	bra mainloop
 
+
+;===============================================================================
+
+checkRXdata:
+	; called when having at least 22 bytes.
+	movlw low l_framBuf
+	movwf FSR0L
+	movlw high l_framBuf
+	movwf FSR0H
+	moviw 0[FSR0]
+	xorlw 'S'
+	btfss STATUS,Z
+	bra _checkRX_badhead
+	moviw 1[FSR0]
+	xorlw 0
+	btfss STATUS,Z
+	bra _checkRX_badhead
+	moviw 2[FSR0]
+	xorlw .12
+	btfss STATUS,Z
+	bra _checkRX_badhead
+
+	; poll
+	movlw 1
+	call testRX
+	; calc CRC
+	movlw 0xFF
+	movwf l_CRCstate
+	movf FSR0L,0
+	movwf FSR1L
+	movf FSR0H,0
+	movwf FSR1H
+	movlw .40-1
+	movwf ml_temp
+_calcCRC:
+	moviw FSR1++
+	xorwf l_CRCstate,0
+	call _pollCRCtab
+	movwf l_CRCstate
+	decfsz ml_temp,1
+	bra _calcCRC
+	moviw 0[FSR1]
+	xorwf l_CRCstate,0
+	btfss STATUS,Z
+	bra _checkRX_badhead
+	; is valid!!
+	movlw 'o'
+	call putTX
+	movlw 'k'
+	call putTX
+	movlw .13
+	call putTX
+	movlw .10
+	call putTX
+
+	; poll
+	movlw 1
+	call testRX
+
+	; process it
+
+
+	; drop it
+	movlw .40
+	call dropRXdata
+	retlw 1
+
+
+
+_checkRX_badhead:
+	; bad. scan for next 'S' in data.
+	movlw 'b'
+	call putTX
+	movlw 'a'
+	call putTX
+	movlw 'd'
+	call putTX
+	movlw ' '
+	call putTX
+
+	; DEBUG output buffer  ..... delete!
+	movlw low l_framBuf
+	movwf FSR1L
+	movlw high l_framBuf
+	movwf FSR1H
+	movlw .40
+	movwf ml_temp2
+	moviw FSR1++
+	call putTX
+	decfsz ml_temp2,1
+	bra $-3
+
+;	movf l_framBufCnt,0
+;	call putHexTX
+
+	movlw .13
+	call putTX
+	movlw .10
+	call putTX
+
+
+	; scan for 'S'
+	movlw low l_framBuf
+	movwf FSR0L
+	movlw high l_framBuf
+	movwf FSR0H
+	movf l_framBufCnt,0
+	movwf ml_temp
+	clrf ml_temp2
+	decf ml_temp,1 ; do not allow first.
+	incf ml_temp2,1
+	moviw FSR0++
+_scan_S:
+	moviw FSR0++
+	xorlw 'S'
+	btfsc STATUS,Z
+	bra _scan_S_found
+	incf ml_temp2,1
+	decfsz ml_temp,1
+	bra _scan_S
+_scan_S_found:
+	movf ml_temp2,0
+	call dropRXdata
+	retlw 0
+
+
+
+dropRXdata:
+	; W number to drop.
+	banksel 0
+	; limit value
+	movwf ml_temp
+	movf ml_temp,0
+	btfsc STATUS,Z
+	return
+	movf l_framBufCnt,0
+	subwf ml_temp,0
+	movf l_framBufCnt,0
+	btfsc STATUS,C
+	bra dropRXdata_all
+	; prepare copy-pointers. copy from [FSR1] to [FSR0]
+	movlw low l_framBuf
+	movwf FSR0L
+	movlw high l_framBuf
+	movwf FSR0H
+	movf ml_temp,0
+	addwf FSR0L,0
+	movwf FSR1L
+	movlw 0
+	addwfc FSR0H,0
+	movwf FSR1H
+	movf ml_temp,0
+	subwf l_framBufCnt,1
+	movf l_framBufCnt,0
+	movwf ml_temp
+	moviw FSR1++
+	movwi FSR0++
+	decfsz ml_temp,1
+	bra $-3
+	return
+dropRXdata_all:
+	banksel 0
+	clrf l_framBufCnt
+	return
 
 ;===============================================================================
 
@@ -507,9 +674,6 @@ processRXframe:
 ;	call putTX
 
 	; run decoder
-	movf l_parityErrorsRX,0
-;	btfss STATUS,Z
-;	bsf l_framBuf1+.23,2	; framing error bit
 	movlw low l_servoValuesBuffer
 	movwf FSR1L
 	movlw high l_servoValuesBuffer
@@ -604,9 +768,6 @@ processRXframe:
 
 
 	clrf l_bufRXin	; drop all.
-	clrf l_parityErrorsRX
-	movf TMR0,0
-	movlw l_lastRXtime0
 
 	bra decodedDone
 decodedBad:
@@ -805,7 +966,7 @@ delay_Alh_high:
 	movlw 0
 	call testRX
 
-	movlw .13 + testRX__exectime   ; this must be <= 13, the minimum delay execution time.
+	movlw .13 + .23 ; ..... should be + testRX__exectime   ; this must be <= 13, the minimum delay execution time.
 	subwf l_Al,1
 	movlw 0
 	subwfb l_Ah,1
@@ -819,10 +980,29 @@ testRXTX:
 	call testRX
 	btfss WREG,0
 	bra $+3
-	movf TMR0,0
-	movwf l_lastRXtime0
 	return
 
+
+;===============================================================================
+
+_pollCRCtab:
+	brw
+	dw 0x3400,0x34C2,0x3471,0x34B3,0x34E2,0x3420,0x3493,0x3451,0x3431,0x34F3,0x3440,0x3482,0x34D3,0x3411,0x34A2,0x3460
+	dw 0x3462,0x34A0,0x3413,0x34D1,0x3480,0x3442,0x34F1,0x3433,0x3453,0x3491,0x3422,0x34E0,0x34B1,0x3473,0x34C0,0x3402
+	dw 0x34C4,0x3406,0x34B5,0x3477,0x3426,0x34E4,0x3457,0x3495,0x34F5,0x3437,0x3484,0x3446,0x3417,0x34D5,0x3466,0x34A4
+	dw 0x34A6,0x3464,0x34D7,0x3415,0x3444,0x3486,0x3435,0x34F7,0x3497,0x3455,0x34E6,0x3424,0x3475,0x34B7,0x3404,0x34C6
+	dw 0x347D,0x34BF,0x340C,0x34CE,0x349F,0x345D,0x34EE,0x342C,0x344C,0x348E,0x343D,0x34FF,0x34AE,0x346C,0x34DF,0x341D
+	dw 0x341F,0x34DD,0x346E,0x34AC,0x34FD,0x343F,0x348C,0x344E,0x342E,0x34EC,0x345F,0x349D,0x34CC,0x340E,0x34BD,0x347F
+	dw 0x34B9,0x347B,0x34C8,0x340A,0x345B,0x3499,0x342A,0x34E8,0x3488,0x344A,0x34F9,0x343B,0x346A,0x34A8,0x341B,0x34D9
+	dw 0x34DB,0x3419,0x34AA,0x3468,0x3439,0x34FB,0x3448,0x348A,0x34EA,0x3428,0x349B,0x3459,0x3408,0x34CA,0x3479,0x34BB
+	dw 0x34FA,0x3438,0x348B,0x3449,0x3418,0x34DA,0x3469,0x34AB,0x34CB,0x3409,0x34BA,0x3478,0x3429,0x34EB,0x3458,0x349A
+	dw 0x3498,0x345A,0x34E9,0x342B,0x347A,0x34B8,0x340B,0x34C9,0x34A9,0x346B,0x34D8,0x341A,0x344B,0x3489,0x343A,0x34F8
+	dw 0x343E,0x34FC,0x344F,0x348D,0x34DC,0x341E,0x34AD,0x346F,0x340F,0x34CD,0x347E,0x34BC,0x34ED,0x342F,0x349C,0x345E
+	dw 0x345C,0x349E,0x342D,0x34EF,0x34BE,0x347C,0x34CF,0x340D,0x346D,0x34AF,0x341C,0x34DE,0x348F,0x344D,0x34FE,0x343C
+	dw 0x3487,0x3445,0x34F6,0x3434,0x3465,0x34A7,0x3414,0x34D6,0x34B6,0x3474,0x34C7,0x3405,0x3454,0x3496,0x3425,0x34E7
+	dw 0x34E5,0x3427,0x3494,0x3456,0x3407,0x34C5,0x3476,0x34B4,0x34D4,0x3416,0x34A5,0x3467,0x3436,0x34F4,0x3447,0x3485
+	dw 0x3443,0x3481,0x3432,0x34F0,0x34A1,0x3463,0x34D0,0x3412,0x3472,0x34B0,0x3403,0x34C1,0x3490,0x3452,0x34E1,0x3423
+	dw 0x3421,0x34E3,0x3450,0x3492,0x34C3,0x3401,0x34B2,0x3470,0x3410,0x34D2,0x3461,0x34A3,0x34F2,0x3430,0x3483,0x3441
 
 ;===============================================================================
 
