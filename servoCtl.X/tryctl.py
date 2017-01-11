@@ -93,10 +93,10 @@ def build_frame(values):
 		val1,val2 = 0.0,0.0
 		if i<len(values):
 			val1 = values[i]
-		val1 = int((val1+1.0)*2047.5)
+		val1 = int((val1+1.0)*2047.5+0.5)
 		val1 = min(max(val1,0),4095)
-		val2 = int((val2+1.0)*2047.5)
-		val2 = min(max(val2,0),4095)
+		val2 = int((val2+1.0)*2047.5+0.5)
+		val2 = min(max(val2,0),4095) ^ 2048
 
 		res.append( chr(val1>>4) + chr((val1&15)+(val2>>8)) + chr(val2&255) )
 

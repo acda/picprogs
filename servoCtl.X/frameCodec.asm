@@ -38,22 +38,11 @@ _lop_decod_fram:
 	movwi FSR1++
 	movf ml_temp,0
 	movwi FSR1++
-	; servo-step value. shift to low-align.
-	moviw 2[FSR0]
-	movwf ml_temp
+	; servo-step value. cut and make left-aligned to 16-bit
 	moviw 1[FSR0]
-	lsrf ml_temp,1
-	rrf WREG,0
-	lsrf ml_temp,1
-	rrf WREG,0
-	lsrf ml_temp,1
-	rrf WREG,0
-	lsrf ml_temp,1
-	rrf WREG,0
+	andlw 0xF0
 	movwi FSR1++
-	movf ml_temp,0
-	btfsc WREG,3
-	iorlw 0xF0
+	moviw 2[FSR0]
 	movwi FSR1++
 	; loop
 	addfsr FSR0,3

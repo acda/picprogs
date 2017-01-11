@@ -344,43 +344,27 @@ mainloop:
 	btfss STATUS,Z
 	bra noPutTXS
 	incf l_Dl,1
-;	movf l_bufRXin,0
-;	addlw 'a'
-;	;movlw '.'
-;	call putTX
 
-;	movf l_Dl,0
-;	call $+3
-;	call putTX
-;	bra noPutTXS
-;	andlw 0x07
-;	brw
-;	retlw '0'
-;	retlw '1'
-;	retlw '2'
-;	retlw '3'
-;	retlw '4'
-;	retlw '.'
-;	retlw 0x0D
-;	retlw 0x0A
+	; do some stuff once a second...
 
-	; adjust servos a little.
-	movlw low l_servoValuesBuffer
-	movwf FSR0L
-	movlw high l_servoValuesBuffer
-	movwf FSR0H
-	movf l_secondsH,0
-	andlw .3
-	addlw .2
-	lslf WREG,0
-	iorlw 1
-	lslf WREG,0
-	lslf WREG,0
-	lslf WREG,0
-	lslf WREG,0
-	movwi 1[FSR0]
-	movlw 0
-	movwi 0[FSR0]
+
+;	; adjust servos a little.
+;	movlw low l_servoValuesBuffer
+;	movwf FSR0L
+;	movlw high l_servoValuesBuffer
+;	movwf FSR0H
+;	movf l_secondsH,0
+;	andlw .3
+;	addlw .2
+;	lslf WREG,0
+;	iorlw 1
+;	lslf WREG,0
+;	lslf WREG,0
+;	lslf WREG,0
+;	lslf WREG,0
+;	movwi 1[FSR0]
+;	movlw 0
+;	movwi 0[FSR0]
 
 
 noPutTXS:
