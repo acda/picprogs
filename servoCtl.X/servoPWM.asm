@@ -35,7 +35,7 @@ _pSPcopy:
 	movwf l_Al
 	moviw FSR0++
 	movwf l_Ah
-	call mul8000_div2048
+	call mul8000_sr16
 	movf l_Bl,0
 	movwi FSR1++
 	movf l_Al,0
@@ -187,8 +187,14 @@ _pSP_down:
 
 
 
-mul8000_div2048:
-	; calc *125 /32  for value in l_A*
+mul8000_sr16:
+	; calc *125 /1024  for value in l_A*
+	; shift A right 2 bits (little precision loss to 14 bit ...)
+	lsrf l_Ah,1
+	rrf l_Al,1
+	lsrf l_Ah,1
+	rrf l_Al,1
+
 	; 3*A -> temp
 	lslf l_Al,0
 	movwf ml_temp
@@ -208,18 +214,9 @@ mul8000_div2048:
 	subwf ml_temp3,1
 	movf ml_temp2,0
 	subwfb l_Al,1
-	clrf WREG
+	movlw 0
 	subwfb l_Ah,1
-	; now have *125. do >>5
-	lslf ml_temp3,1
-	rlf l_Al,1
-	rlf l_Ah,1
-	lslf ml_temp3,1
-	rlf l_Al,1
-	rlf l_Ah,1
-	lslf ml_temp3,1
-	rlf l_Al,1
-	rlf l_Ah,1
+	; now have (A>>2)*125. do >>8. since we have higher bytes, it is a nop.
 	return
 
 

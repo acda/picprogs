@@ -372,8 +372,14 @@ mainloop:
 	movf l_secondsH,0
 	andlw .3
 	addlw .2
+	lslf WREG,0
+	iorlw 1
+	lslf WREG,0
+	lslf WREG,0
+	lslf WREG,0
+	lslf WREG,0
 	movwi 1[FSR0]
-	movlw 0x84
+	movlw 0
 	movwi 0[FSR0]
 
 
@@ -490,12 +496,61 @@ _tytRx_done:
 
 	call prepareAndSendServoPWM
 
+	call testRXTX
+
+	call add_servo_speedval
 
 
 noSendServoPwm:
 
 	bra mainloop
 
+;===============================================================================
+
+add_servo_speedval:
+	banksel 0
+	movlw low l_servoValuesBuffer
+	movwf FSR1L
+	movlw high l_servoValuesBuffer
+	movwf FSR1H
+	movlw .12	; ..... constant for num channels?
+	movwf ml_temp2
+_add_speed:
+	; get and sign-extend speed
+	clrf ml_temp
+	moviw 2[FSR1]
+	movwf l_Al
+	moviw 3[FSR1]
+	movwf l_Ah
+	btfsc WREG,7
+	decf ml_temp,1
+	; get and add value
+	moviw 0[FSR1]
+	addwf l_Al,1
+	moviw 1[FSR1]
+	addwfc l_Ah,1
+	movlw 0
+	addwfc ml_temp,1
+	; check bounds.
+	movf ml_temp,0
+	btfsc STATUS,Z
+	bra _add_no_clamp
+	clrf l_Al
+	clrf l_Ah
+	btfss WREG,7
+	decf l_Al,1
+	btfss WREG,7
+	decf l_Ah,1
+_add_no_clamp:
+	movf l_Al,0
+	movwi 0[FSR1]
+	movf l_Ah,0
+	movwi 1[FSR1]
+
+	addfsr FSR1,4
+	decfsz ml_temp2,1
+	bra _add_speed
+	return
 
 ;===============================================================================
 
@@ -556,6 +611,16 @@ _calcCRC:
 	call testRX
 
 	; process it
+	movlw low l_servoValuesBuffer
+	movwf FSR1L
+	movlw high l_servoValuesBuffer
+	movwf FSR1H
+	call decodeFrame	;; takes roughly 440
+
+	; poll
+	movlw 1
+	call testRX
+
 
 
 	; drop it
@@ -678,7 +743,7 @@ processRXframe:
 	movwf FSR1L
 	movlw high l_servoValuesBuffer
 	movwf FSR1H
-	call decodeSbusFrame	;; takes roughly 230
+	call decodeFrame	;; takes roughly 230
 	movwf ml_temp2
 	call testRXTX	; the decoder took some time...
 
@@ -1007,7 +1072,7 @@ _pollCRCtab:
 ;===============================================================================
 
 #include "servoPWM.asm"
-#include "sbusFrameCodec.asm"
+#include "frameCodec.asm"
 #include "uartBuffer.asm"
 
 
