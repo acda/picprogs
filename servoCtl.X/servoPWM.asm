@@ -31,9 +31,9 @@ prepareAndSendServoPWM:
 	; copy values and multiply them to rescale to clock-cycles.
 	clrf l_Bl
 _pSPcopy:
-	moviw FSR0++
+	moviw 0[FSR0]
 	movwf l_Al
-	moviw FSR0++
+	moviw 1[FSR0]
 	movwf l_Ah
 	call mul8000_sr16
 	movf l_Bl,0
@@ -42,6 +42,7 @@ _pSPcopy:
 	movwi FSR1++
 	movf l_Ah,0
 	movwi FSR1++
+	addfsr FSR0,4
 	incf l_Bl,1
 	movlw NUM_PWM_PINS
 	subwf l_Bl,0

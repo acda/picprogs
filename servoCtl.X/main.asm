@@ -237,7 +237,7 @@ skipPauseOsc:
 	banksel TMR6
 	movlw .125 ; 125 is good divisor for powers of ten.
 	movwf PR6
-	movlw 0x07+8*(5-1)  ; prescale=1:64, enable, postscale is 5 for 200Hz, 10 for 100Hz.
+	movlw 0x07+8*(10-1)  ; prescale=1:64, enable, postscale is 5 for 200Hz, 10 for 100Hz.
 	movwf T6CON
 
 
@@ -295,6 +295,24 @@ skipStartPause:
 	movwf l_modeSwitch
 	movlw .10
 	movwf l_filterFirst
+
+	movlw low l_servoValuesBuffer
+	movwf FSR0L
+	movlw high l_servoValuesBuffer
+	movwf FSR0H
+	movlw .12
+	movwf ml_temp
+_clr_servo_values:
+	movlw 0
+	movwi 0[FSR0]
+	movwi 2[FSR0]
+	movwi 3[FSR0]
+	movlw 0x80
+	movwi 1[FSR0]
+	addfsr FSR0,4
+	decfsz ml_temp,1
+	bra _clr_servo_values
+
 
 	; preload TX buffer
 	movlw 'S'
@@ -481,6 +499,8 @@ _tytRx_done:
 	call prepareAndSendServoPWM
 
 	call testRXTX
+
+;	call DEBUG_output_value
 
 	call add_servo_speedval
 
@@ -712,130 +732,6 @@ dropRXdata_all:
 
 ;===============================================================================
 
-processRXframe:
-	; data is in l_framBuf1
-
-;	movlw 'H'
-;	call putTX
-;	movlw 0x0D
-;	call putTX
-;	movlw 0x0A
-;	call putTX
-
-	; run decoder
-	movlw low l_servoValuesBuffer
-	movwf FSR1L
-	movlw high l_servoValuesBuffer
-	movwf FSR1H
-	call decodeFrame	;; takes roughly 230
-	movwf ml_temp2
-	call testRXTX	; the decoder took some time...
-
-	movf ml_temp2,0
-	btfsc STATUS,Z
-	bra decodedBad
-
-	; place one on hardware-PWM
-	banksel l_servoValuesBuffer
-	movf l_servoValuesBuffer+4,0
-	movwf ml_temp
-	movf l_servoValuesBuffer+5,0
-	movwf ml_temp2
-	call placeOnPwm
-
-	banksel 0
-
-	; timer-tick
-	bra $+3
-	bcf PIR1,1		; TMR2IF
-	incf ml_timeCount,1
-	clrwdt
-
-	; This takes forever. If UART stuff comes in here, we're down.
-	call prepareAndSendServoPWM
-
-	call testRXTX
-
-	; timer-tick
-	bra $+3
-	bcf PIR1,1		; TMR2IF
-	incf ml_timeCount,1
-	clrwdt
-
-
-	call testRXTX
-
-
-
-;	clrf ml_temp3
-;debugoutputSome:
-;	lslf ml_temp3,0
-;	movwf FSR1L
-;	clrf FSR1H
-;	movlw low l_servoValuesBuffer
-;	addwf FSR1L,1
-;	movlw high l_servoValuesBuffer
-;	addwfc FSR1H,1
-;	moviw 1[FSR1]
-;	call putHexTX_half
-;	moviw 0[FSR1]
-;	call putHexTX
-;	movlw 0x20
-;	call putTX
-;
-;	incf ml_temp3,1
-;	movlw 4
-;	subwf ml_temp3,0
-;	btfss STATUS,C
-;	bra debugoutputSome
-
-	banksel l_servoValuesBuffer
-	movf l_servoValuesBuffer+.1,0
-	banksel 0
-	call putHexTX
-	banksel l_servoValuesBuffer
-	movf l_servoValuesBuffer+.0,0
-	banksel 0
-	call putHexTX
-	movlw 0x20
-	call putTX
-	banksel l_servoValuesBuffer
-	movf l_servoValuesBuffer+.3,0
-	banksel 0
-	call putHexTX
-	banksel l_servoValuesBuffer
-	movf l_servoValuesBuffer+.2,0
-	banksel 0
-	call putHexTX
-	movlw 0x20
-	call putTX
-
-	movlw 0x0D
-	call putTX
-	movlw 0x0A
-	call putTX
-
-
-	clrf l_bufRXin	; drop all.
-
-	bra decodedDone
-decodedBad:
-	movlw 'B'
-	call putTX
-	movlw 'a'
-	call putTX
-	movlw 'd'
-	call putTX
-	movlw 0x0A
-	call putTX
-	movlw 0x0A
-	call putTX
-
-	bra decodedDone
-
-decodedDone:
-	return
-
 
 putHexTX_half:
 	movwf ml_temp2
@@ -859,6 +755,24 @@ getHexDigit:
 	dw 0x3438,0x3439,0x3441,0x3442,0x3443,0x3444,0x3445,0x3446
 
 ;===============================================================================
+
+DEBUG_output_value:
+	movlw low l_servoValuesBuffer
+	movwf FSR1L
+	movlw high l_servoValuesBuffer
+	movwf FSR1H
+	movlw '0'
+	call putTX
+	movlw 'x'
+	call putTX
+	moviw 1[FSR1]
+	call putHexTX
+	moviw 0[FSR1]
+	call putHexTX
+	movlw .13
+	call putTX
+	movlw .10
+	call putTX
 
 placeOnPwm:
 	; value to place in ml_temp:ml_temp2
