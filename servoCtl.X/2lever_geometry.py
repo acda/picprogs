@@ -15,6 +15,12 @@ leverLen1a = 100.0
 leverLen1b = 100.0
 leverLen2a = 105.0
 leverLen2b = 115.0
+SERVO_LIMIT_DEG = 60.0
+
+# polygon of 'valid' target points. found by starting 'main' in here and entering it manually.
+# automating this would be cool.
+# define counterclockwise.
+ValidArea = ( (-10.0,70.0) , (95.0,100.0) , (-25.0,190.0) , (-110.0,90.0) )
 
 
 def main(args):
@@ -89,8 +95,6 @@ def main(args):
 	print '    '+''.join(("%3u"%(w-50))[0] for w in xrange(WIDTH))
 
 
-SERVO_LIMIT_DEG = 60.0
-
 def calc_servo_angles_for_target(targetpoint):
 	# calc points of joints
 	j1 = circles_cut(ServoPos1,leverLen1a,targetpoint,leverLen1b)
@@ -108,6 +112,29 @@ def calc_servo_angles_for_target(targetpoint):
 	else:
 		a2 = None
 	return a1,a2
+
+def restrict_point(point):
+	global ValidArea
+	global ValidAreaEdges
+	if ValidAreaEdges is None:
+		# pre-calc edge formulas. Each edge has normal and distance.
+		# vectors point outward
+		ValidAreaEdges = list()
+		for i in xrange(len(ValidArea)):
+			i2 = (i+1)%len(ValidArea)
+			dx,dy = ValidArea[i2][0]-ValidArea[i][0] , ValidArea[i2][1]-ValidArea[i][1]
+			len = math.sqrt(dx*dx+dy*dy)
+			nx,ny = dy/len,-dx/len
+			dd = ValidArea[i][0]*nx + ValidArea[i][1]*ny
+			ValidAreaEdges.append((nx,ny,dd))
+	# ugly. just apply edges in order.
+	for (nx,ny,dd) in ValidAreaEdges:
+		_tmp = nx*point[0]+ny*point[1]
+		if _tmp > dd:
+			# point is outside. clamp onto edge.
+			point = point[0]-(_tmp-dd)*nx , point[1]-(_tmp-dd)*ny
+
+	return point
 
 
 def clampangle_deg(ang):
