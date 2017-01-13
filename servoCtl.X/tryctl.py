@@ -10,10 +10,13 @@ import serial
 import sys
 import threading
 import time
+import two_lever_geometry
 
 
 baudrate = 115200
 serport = '/dev/ttyUSB0'
+
+POINTS = ((-90.0,145.0),(0.0,200.0),(90.0,140.0))
 
 
 ser = None
@@ -52,36 +55,62 @@ def readloop(ser):
 			time.sleep(0.25)
 		cnt += 1
 
-
+nP = 0
+curpos = POINTS[0]
 def proc(t,dt):
 	global ser
 	global values
+	global nP
+	global curpos
 
 #	ol = list()
 #	dat = (''.join(ol))+"SEQ-END."
 #	del ol
 
-	v1 = int(t*4096) & 2047
-	v1 = (v1-1023.5)/1023.5
-	v1 *= 0.5
+	# move to point
+	SPEED = 80.0 # mm/sec
+	P = POINTS[nP]
+	dx,dy = P[0]-curpos[0] , P[1]-curpos[1]
+	d = math.sqrt(dx*dx+dy*dy)
+	spd = SPEED*dt
+	if d>spd:
+		q = spd/d
+		curpos = ( curpos[0]+q*dx , curpos[1]+q*dy )
+	else:
+		curpos = P
+		nP = (nP+1) % len(POINTS)
+	#calc angles for this
+	ang1,ang2 = two_lever_geometry.calc_servo_angles_for_target(curpos)
 
-	v2 = int(t*512) & 4095
-	if v2>=2048: v2=4096-v2
-	v2 = (v2-1023.5)/1023.5
-	v2 *= 0.5
+	# convert to servo-values. 
+	v1 = ang1/-48.4
+	v2 = ang2/-48.4
 
-	v3 = int(t*65536.0) & 0xFFFF
-	v3 = v3*(math.pi/32768.0)
-	v4 = 0.5 * math.sin(v3)
-	v3 = 0.5 * math.cos(v3)
+	v3 = int(t*4096) & 2047
+	v3 = (v3-1023.5)/1023.5
+	v3 *= 0.5
+
+	v4 = int(t*512) & 4095
+	if v4>=2048: v4=4096-v4
+	v4 = (v4-1023.5)/1023.5
+	v4 *= 0.5
+
+	v5 = int(t*65536.0) & 0xFFFF
+	v5 = v5*(math.pi/32768.0)
+	v6 = 0.5 * math.sin(v5)
+	v5 = 0.5 * math.cos(v5)
+
+#	# 3 moves the positions -0.75,0,+.75,0
+#	_t = int(t*0.6667+0.5)
+#	v3 = (0.0,-0.75,0,0.75)[_t&3]
 
 
-	dat = build_frame((v1,v2,v3,v4))
-#	dat = build_frame((0.0,0.0,0.0,v2))
+	dat = build_frame((v1,v2,v3,v4,v5,v6))
+#	dat = build_frame((v3,v4,v5,v6,v1,v2))
 #	dat = "S\x00\x0C3456789abcdef0123456789ABCDEF0123456C"
 
-#	if t<2.0:
-#		print "sending: " + repr(dat)[:70]
+	if t<2.0:
+		print "sending: " + repr(dat)[:70]
 	ser.write(dat)
 
 
@@ -98,7 +127,7 @@ def build_frame(values):
 		val2 = int((val2+1.0)*2047.5+0.5)
 		val2 = min(max(val2,0),4095) ^ 2048
 
-		res.append( chr(val1>>4) + chr((val1&15)+(val2>>8)) + chr(val2&255) )
+		res.append( chr(val1&255) + chr((val1>>8)+((val2&15)<<4)) + chr(val2>>4) )
 
 	res = ''.join(res)
 	return res + calcCRC8(res)
