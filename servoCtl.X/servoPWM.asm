@@ -125,7 +125,7 @@ _pSP_up:
 	call testRX
 
 	; delay rest to get this loop to 64.
-	movlw 0x40-.23-.23  ; ..... should be testRX__exectime
+	movlw 0x40-.24-.23  ; ..... should be testRX__exectime
 	movwf l_Al
 	clrf l_Ah
 	call delay_Alh
@@ -136,9 +136,10 @@ _pSP_up:
 	btfss STATUS,C
 	bra _pSP_up
 
-	movlw low (.8000-.54-.66)
+PAUSE = (.8000-(.64*NUM_PWM_PINS)) ; TODO: ..... measure correction using PICsim
+	movlw low PAUSE
 	movwf l_Al
-	movlw high (.8000-.54-.66)
+	movlw high PAUSE
 	movwf l_Ah
 	; 66 clks after  call servoPinUp  (huh? isn't it actually 54?)
 	call delay_Alh

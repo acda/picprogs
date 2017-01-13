@@ -7,8 +7,8 @@ import sys
 
 
 # definition of mechanic. All numbers in millimeters. Vectors as 2D tuples. Angles as degrees. Zero-angle is to pos-X, 90-angle is to pos-Y.
-ServoPos1 = (-25.0,0.0)
-ServoPos2 = (25.0,0.0)
+ServoPos1 = (-22.3,0.0)
+ServoPos2 = (22.3,0.0)
 ServoNullAngle1 = 142.4
 ServoNullAngle2 = 37.4
 leverLen1a = 120.0
@@ -18,11 +18,12 @@ leverLen2b = 120.0
 pen_pos_over_len =   -2.0
 pen_pos_over_left = 23.0
 SERVO_LIMIT_DEG = 60.0
+SERVO_ANG_PER_MILLISEC = -2.0*48.4
 
 # polygon of 'valid' target points. found by starting 'main' in here and entering it manually.
 # automating this would be cool.
 # define counterclockwise.
-ValidArea = ( (-10.0,70.0) , (95.0,100.0) , (-25.0,190.0) , (-110.0,90.0) )
+ValidArea = ( (-125.0,105.0) , (115.0,115.0) , (105.0,170.0) , (0.0,215.0) , (-105.0,170.0) )
 
 
 def main(args):
@@ -59,21 +60,24 @@ def main(args):
 			ar[w+WIDTH*h] = calc_servo_angles_for_target((x,y))
 
 	maxx_d = 0.0
-	res = [' ']*WIDTH*HEIGHT
+	minn_d = 1.0e6
+	res1 = [' ']*WIDTH*HEIGHT
+	res2 = [' ']*WIDTH*HEIGHT
 	for h in xrange(HEIGHT):
 		for w in xrange(WIDTH):
 			a = ar[w+WIDTH*h]
 			if w<=0 or h<=0 or w+1>=WIDTH or h+1>=HEIGHT:
-				a = '#'
+				a1,a2 = '#','#'
 			elif (a[0] is None) or (a[1] is None):
-				a = '.'
+				a1,a2 = '.','.'
 			else:
 				au = ar[w+WIDTH*(h-1)]
 				ad = ar[w+WIDTH*(h+1)]
 				al = ar[w-1+WIDTH*h]
 				aR = ar[w+1+WIDTH*h]
-				a = 'X'
+				a1,a2 = 'X','X'
 				if not ((au[0] is None) or (au[1] is None) or (ad[0] is None) or (ad[1] is None) or (al[0] is None) or (al[1] is None) or (aR[0] is None) or (aR[1] is None)):
+					# calc gradient
 					dx1 = aR[0]-al[0]
 					dx2 = aR[1]-al[1]
 					dy1 = ad[0]-au[0]
@@ -81,16 +85,34 @@ def main(args):
 					d1 = dx1*dx1+dy1*dy1
 					d2 = dx2*dx2+dy2*dy2
 					d = math.sqrt(max(d1,d2))
+					# di is gradient of how much a move in x/y will affect servo rotations.
 					maxx_d = max(d,maxx_d)
-					colidx = min(int(d/2.0+0.5),25)
-					a = chr(ord('a')+colidx)
-			res[w+WIDTH*h] = a
+					minn_d = min(d,minn_d)
+					colidx1 = min(int(d/1.0+0.5),25)
+					colidx2 = min(int(50.0/d+0.5),25)
+					a1 = chr(ord('a')+colidx1)
+					a2 = chr(ord('a')+colidx2)
+			res1[w+WIDTH*h] = a1
+			res2[w+WIDTH*h] = a2
 
 	print "maxx_d = %.1f" % (maxx_d,)
+	print "minn_d = %.1f" % (minn_d,)
+	res1 = ''.join(res1)
+	res2 = ''.join(res2)
 
-	res = ''.join(res)
+	# print graph for gradient.
+	print "\nGradient servoangle-per-linearmove"
 	for h in xrange(HEIGHT-1,-1,-1):
-		print ("%3d "%(h+1)) + res[WIDTH*h:WIDTH*(h+1)]
+		print ("%3d "%(h+1)) + res1[WIDTH*h:WIDTH*(h+1)]
+	print
+	print '    '+''.join(("%3u"%(w-50))[2] for w in xrange(WIDTH))
+	print '    '+''.join(("%3u"%(w-50))[1] for w in xrange(WIDTH))
+	print '    '+''.join(("%3u"%(w-50))[0] for w in xrange(WIDTH))
+
+	# print graph for inverse.
+	print "\nGradient linearmove-per-servoangle"
+	for h in xrange(HEIGHT-1,-1,-1):
+		print ("%3d "%(h+1)) + res2[WIDTH*h:WIDTH*(h+1)]
 	print
 	print '    '+''.join(("%3u"%(w-50))[2] for w in xrange(WIDTH))
 	print '    '+''.join(("%3u"%(w-50))[1] for w in xrange(WIDTH))
@@ -102,6 +124,12 @@ def calc_servo_angles_for_target(targetpoint):
 	# calc points of joints
 	global len1bgross
 	global _pen2left
+
+#	# check against bounds.
+#	_tp = restrict_point(targetpoint)
+#	if _tp!=targetpoint:
+#		return None,None
+
 	if len1bgross is None:
 		_x = leverLen1b + pen_pos_over_len
 		_y = pen_pos_over_left
@@ -133,6 +161,8 @@ def calc_servo_angles_for_target(targetpoint):
 
 	return a1,a2
 
+
+ValidAreaEdges = None # filled in on first access
 def restrict_point(point):
 	global ValidArea
 	global ValidAreaEdges
@@ -143,8 +173,8 @@ def restrict_point(point):
 		for i in xrange(len(ValidArea)):
 			i2 = (i+1)%len(ValidArea)
 			dx,dy = ValidArea[i2][0]-ValidArea[i][0] , ValidArea[i2][1]-ValidArea[i][1]
-			len = math.sqrt(dx*dx+dy*dy)
-			nx,ny = dy/len,-dx/len
+			_len = math.sqrt(dx*dx+dy*dy)
+			nx,ny = dy/_len,-dx/_len
 			dd = ValidArea[i][0]*nx + ValidArea[i][1]*ny
 			ValidAreaEdges.append((nx,ny,dd))
 	# ugly. just apply edges in order.
@@ -153,6 +183,7 @@ def restrict_point(point):
 		if _tmp > dd:
 			# point is outside. clamp onto edge.
 			point = point[0]-(_tmp-dd)*nx , point[1]-(_tmp-dd)*ny
+			###print "clamping to (%.1f/%.1f)" % point
 
 	return point
 

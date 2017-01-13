@@ -63,8 +63,6 @@ l_framBufEnd     = 0x70 ; max 0x37 bytes
 l_framBuf1 = l_framBuf ; ...... remove this along with sbus-decoder.
 l_framBuf2 = l_framBuf ; ...... remove this along with sbus-decoder.
 
-portA_pwm = 4
-
 portB_led = 0
 portB_RX = 2
 
@@ -83,17 +81,17 @@ portbit_S5 = 2
 LATS6 = LATA
 portbit_S6 = 3
 LATS7 = LATA
-portbit_S7 = 5
-LATS8 = LATA
-portbit_S8 = 5
-LATS9 = LATA
-portbit_S9 = 5
-LATS10 = LATA
-portbit_S10 = 5
-LATS11 = LATA
-portbit_S11 = 5
-LATS12 = LATA
-portbit_S12 = 5
+portbit_S7 = 4
+LATS8 = LATB
+portbit_S8 = 1
+LATS9 = LATB
+portbit_S9 = 3
+LATS10 = LATB
+portbit_S10 = 4
+LATS11 = LATB
+portbit_S11 = 6
+LATS12 = LATB
+portbit_S12 = 7
 LATS13 = LATA
 portbit_S13 = 5
 LATS14 = LATA
@@ -225,13 +223,6 @@ skipPauseOsc:
 	banksel PIE1
 	bcf PIE1,1  ; disable int
 
-	; timer4 is for PWM. 3906.25 loops/sec @ 8MHz
-	banksel TMR4
-	movlw 0xFF	; full range for 10-bit resolution.
-	movwf PR4
-	movlw 0x05  ; prescale=1:4, enable
-	movwf T4CON
-
 	; timer 6 is timer for getting clean 200 PWM outputs per second. (or 100)
 	; that is 40000 ticks/loop. 
 	banksel TMR6
@@ -240,19 +231,6 @@ skipPauseOsc:
 	movlw 0x07+8*(10-1)  ; prescale=1:64, enable, postscale is 5 for 200Hz, 10 for 100Hz.
 	movwf T6CON
 
-
-	; CCP4 as PWM on timer4
-	banksel CCPTMRS
-	movlw 0x0F
-	andwf CCPTMRS,1
-	movlw 0x50	; select timer 4 for CCP3 and CCP4
-	iorwf CCPTMRS,1
-	banksel CCP4CON
-	movlw 0x0C		; enable PWM for CCP4
-	movwf CCP4CON
-
-	banksel TRISA
-	bcf TRISA,portA_pwm
 
 	banksel 0
 
@@ -419,11 +397,6 @@ noPutTXS:
 	lsrf WREG,0
 	lsrf WREG,0
 	addwf l_secondsL,1
-
-;	movf l_secondsL,0
-;	banksel CCPR4L
-;	movwf CCPR4L
-;	banksel 0
 
 	; alive-LED  bit #-1 of seconds counter.
 	movf l_secondsL,0
@@ -773,62 +746,7 @@ DEBUG_output_value:
 	call putTX
 	movlw .10
 	call putTX
-
-placeOnPwm:
-	; value to place in ml_temp:ml_temp2
-
-	; double
-	movlw 2
-	subwf ml_temp2,0
-	btfss STATUS,C
-	bra __pop_cutlow
-	movlw 6
-	subwf ml_temp2,0
-	btfsc STATUS,C
-	bra __pop_cuthigh
-	movlw 2
-	subwf ml_temp2,1
-	bra $+8
-__pop_cutlow:
-	clrf ml_temp
-	clrf ml_temp2
-	bra $+5
-__pop_cuthigh:
-	movlw 0xFF
-	movwf ml_temp
-	movlw 0x03
-	movwf ml_temp2
-
-	lslf ml_temp,1
-	rlf ml_temp2,1
-
-
-;; wait for timer to reach almost end.
-;	banksel TMR4
-;	movlw 0xEE
-;	subwf TMR4,0
-;	btfsc STATUS,C
-;	bra $-3
-
-	banksel CCP4CON
-	lsrf ml_temp2,1
-	rrf ml_temp,0
-	lsrf ml_temp2,1
-	rrf WREG,0
-	lsrf ml_temp2,1
-	rrf WREG,0
-	bcf CCP4CON,4
-	bcf CCP4CON,5
-
-	btfsc ml_temp,1		; contranry to docu, this does not work with 1:1 prescaler.
-	bsf CCP4CON,4
-	btfsc ml_temp,2
-	bsf CCP4CON,5
-
-	movwf CCPR4L
-	banksel 0
 	return
-
 
 ;===============================================================================
 

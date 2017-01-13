@@ -30,17 +30,24 @@ def main(args):
 
 	print "sending to %s" % serport
 
-	thread = threading.Thread(target=readloop, args=(ser,))
-	thread.start()
+#	thread = threading.Thread(target=readloop, args=(ser,))
+#	thread.start()
 
 	values = [0.0]*18
 
 	t = 0.0
+	toff = t-time.time()
 	while True:
 		dt = 0.05
 		proc(t,dt)
 		t = t+dt
-		time.sleep(dt)
+		_rt = time.time()+toff
+		if _rt<t:
+			# ahead. delay
+			time.sleep(dt)
+		elif _rt>0.5:
+			# too far behind. adjust offset a little.
+			toff -= (_rt-0.5)
 
 	return 0
 
@@ -57,6 +64,7 @@ def readloop(ser):
 
 nP = 0
 curpos = POINTS[0]
+lastang = None
 def proc(t,dt):
 	global ser
 	global values
@@ -83,22 +91,27 @@ def proc(t,dt):
 	ang1,ang2 = two_lever_geometry.calc_servo_angles_for_target(curpos)
 
 	# convert to servo-values. 
-	v1 = ang1/-48.4
-	v2 = ang2/-48.4
+	fac = 2.0/two_lever_geometry.SERVO_ANG_PER_MILLISEC
+	ang1*=fac
+	ang2*=fac
+	global lastang
+	if lastang is None: lastang = ang1,ang2
+	v1 = ang1 , (ang1-lastang[0])/dt
+	v2 = ang2 , (ang2-lastang[1])/dt
+	lastang = ang1,ang2
 
-	v3 = int(t*4096) & 2047
-	v3 = (v3-1023.5)/1023.5
-	v3 *= 0.5
+	v3 = (t*2.0)%1.0
+	v3 = v3-0.5 , 2.0
 
-	v4 = int(t*512) & 4095
-	if v4>=2048: v4=4096-v4
-	v4 = (v4-1023.5)/1023.5
-	v4 *= 0.5
+	v4 = (t*0.25)%2.0
+	if v4<1.0:
+		v4 = v4-0.5 , 0.25
+	else:
+		v4 = 1.5-v4 , -0.25
 
-	v5 = int(t*65536.0) & 0xFFFF
-	v5 = v5*(math.pi/32768.0)
-	v6 = 0.5 * math.sin(v5)
-	v5 = 0.5 * math.cos(v5)
+	v5 = (t%1.0)*math.pi*2.0
+	v6 = 0.5 * math.sin(v5) , 0.5 * math.pi*2.0 * math.cos(v5)
+	v5 = 0.5 * math.cos(v5) , 0.5 * math.pi*2.0 * -math.sin(v5)
 
 #	# 3 moves the positions -0.75,0,+.75,0
 #	_t = int(t*0.6667+0.5)
@@ -110,7 +123,9 @@ def proc(t,dt):
 #	dat = "S\x00\x0C3456789abcdef0123456789ABCDEF0123456C"
 
 	if t<2.0:
-		print "sending: " + repr(dat)[:70]
+		#print "sending: " + repr(dat)[:70]
+		#print "send: " + string4c(dat) + ","
+		print "send:  %5.2f/%5.2f  %5.2f/%5.2f  %5.2f/%5.2f  %5.2f/%5.2f  %5.2f/%5.2f" % (v1[0],v1[1],v2[0],v2[1],v3[0],v3[1],v4[0],v4[1],v5[0],v5[1])
 	ser.write(dat)
 
 
@@ -121,7 +136,8 @@ def build_frame(values):
 	for i in xrange(12):
 		val1,val2 = 0.0,0.0
 		if i<len(values):
-			val1 = values[i]
+			val1,val2 = values[i]
+		val2 /= 100.0
 		val1 = int((val1+1.0)*2047.5+0.5)
 		val1 = min(max(val1,0),4095)
 		val2 = int((val2+1.0)*2047.5+0.5)
@@ -164,6 +180,17 @@ def make_looptable():
 	return looptab,outtab
 
 
+def string4c(st):
+	res = list()
+	for c in st:
+		cc = ord(c)
+		if cc>=32 and cc<126 and c!="'" and c!='"' and c!="\\":
+			res.append(c)
+		else:
+			res.append( "\\" + (("00"+oct(cc))[-3:]) )
+	return '"'+(''.join(res))+'"'
+
+
 if __name__=='__main__':
 	sys.exit(main(sys.argv[1:]))
 
@@ -172,4 +199,7 @@ if __name__=='__main__':
 
 #	print repr(dat)
 #	print len(dat)
+
+
+
 
