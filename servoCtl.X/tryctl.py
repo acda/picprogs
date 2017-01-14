@@ -16,7 +16,9 @@ import two_lever_geometry
 baudrate = 115200
 serport = '/dev/ttyUSB0'
 
-POINTS = ((-90.0,145.0),(0.0,200.0),(90.0,140.0))
+#POINTS = ((-90.0,155.0),(0.0,200.0),(90.0,150.0))
+#POINTS = ((-60.0,145.0),(-30.0,180.0),(30.0,180.0),(60.0,145.0))
+POINTS = ((60.0,145.0),(30.0,180.0),(-30.0,180.0),(-60.0,145.0))
 
 
 ser = None
@@ -30,8 +32,8 @@ def main(args):
 
 	print "sending to %s" % serport
 
-#	thread = threading.Thread(target=readloop, args=(ser,))
-#	thread.start()
+	thread = threading.Thread(target=readloop, args=(ser,))
+	thread.start()
 
 	values = [0.0]*18
 
@@ -76,7 +78,7 @@ def proc(t,dt):
 #	del ol
 
 	# move to point
-	SPEED = 80.0 # mm/sec
+	SPEED = 100.0 # mm/sec
 	P = POINTS[nP]
 	dx,dy = P[0]-curpos[0] , P[1]-curpos[1]
 	d = math.sqrt(dx*dx+dy*dy)
@@ -100,14 +102,18 @@ def proc(t,dt):
 	v2 = ang2 , (ang2-lastang[1])/dt
 	lastang = ang1,ang2
 
+	# DEBUG: send static values for measuring geometry.
+#	v1 = -0.8,0.0
+#	v2 = 0.8,0.0
+
 	v3 = (t*2.0)%1.0
 	v3 = v3-0.5 , 2.0
 
-	v4 = (t*0.25)%2.0
+	v4 = (t*0.5)%2.0
 	if v4<1.0:
-		v4 = v4-0.5 , 0.25
+		v4 = v4-0.5 , 0.5
 	else:
-		v4 = 1.5-v4 , -0.25
+		v4 = 1.5-v4 , -0.5
 
 	v5 = (t%1.0)*math.pi*2.0
 	v6 = 0.5 * math.sin(v5) , 0.5 * math.pi*2.0 * math.cos(v5)

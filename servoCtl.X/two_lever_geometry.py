@@ -7,18 +7,18 @@ import sys
 
 
 # definition of mechanic. All numbers in millimeters. Vectors as 2D tuples. Angles as degrees. Zero-angle is to pos-X, 90-angle is to pos-Y.
-ServoPos1 = (-22.3,0.0)
-ServoPos2 = (22.3,0.0)
-ServoNullAngle1 = 142.4
-ServoNullAngle2 = 37.4
+ServoPos1 = (-22.5,0.0)
+ServoPos2 = (22.5,0.0)
+ServoNullAngle1 = 144.6
+ServoNullAngle2 = 41.35
 leverLen1a = 120.0
-leverLen1b = 131.0
-leverLen2a = 121.0
+leverLen1b = 131.5
+leverLen2a = 120.0
 leverLen2b = 120.0
-pen_pos_over_len =   -2.0
-pen_pos_over_left = 23.0
+pen_pos_over_len =   -5.17
+pen_pos_over_left = 22.4
 SERVO_LIMIT_DEG = 60.0
-SERVO_ANG_PER_MILLISEC = -2.0*48.4
+SERVO_ANG_PER_MILLISEC = -95.0	# or 93.2 or 95.0 ?
 
 # polygon of 'valid' target points. found by starting 'main' in here and entering it manually.
 # automating this would be cool.
@@ -133,13 +133,13 @@ def calc_servo_angles_for_target(targetpoint):
 	if len1bgross is None:
 		_x = leverLen1b + pen_pos_over_len
 		_y = pen_pos_over_left
-		len1bgross = math.sqrt(_x*_x+_y*_y)
+		len1bgross = math.sqrt(_x*_x+_y*_y) # len1b to pen
 		_pen2left = math.atan2(_y,_x)
 	# calc first lever
 	j1 = circles_cut(ServoPos1,leverLen1a,targetpoint,len1bgross)
 	if len(j1)<1:
 		return None,None
-	elif len(j1)==1 or j1[0]<j1[1]:
+	elif len(j1)==1 or j1[0][0]<j1[1][0]:
 		j1=j1[0]
 	else:
 		j1=j1[1]
@@ -150,12 +150,12 @@ def calc_servo_angles_for_target(targetpoint):
 	j2 = circles_cut(ServoPos2,leverLen2a,j3,leverLen2b)
 	if len(j2)<1:
 		return None,None
-	elif len(j2)==1 or j2[0]>j2[1]:
+	elif len(j2)==1 or j2[0][0]>j2[1][0]:
 		j2=j2[0]
 	else:
 		j2=j2[1]
-	a1=clampangle_deg(math.atan2(j1[1],j1[0])*180.0/math.pi-ServoNullAngle1)
-	a2=clampangle_deg(math.atan2(j2[1],j2[0])*180.0/math.pi-ServoNullAngle2)
+	a1=clampangle_deg(math.atan2(j1[1]-ServoPos1[1],j1[0]-ServoPos1[0])*180.0/math.pi-ServoNullAngle1)
+	a2=clampangle_deg(math.atan2(j2[1]-ServoPos2[1],j2[0]-ServoPos2[0])*180.0/math.pi-ServoNullAngle2)
 	if a1<-SERVO_LIMIT_DEG or a1>SERVO_LIMIT_DEG: a1=None
 	if a2<-SERVO_LIMIT_DEG or a2>SERVO_LIMIT_DEG: a2=None
 

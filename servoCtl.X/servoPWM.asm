@@ -121,7 +121,7 @@ _pSP_up:
 	call servoPinUp
 
 	; poll
-	movlw 1
+	movlw 0
 	call testRX
 
 	; delay rest to get this loop to 64.
@@ -136,7 +136,7 @@ _pSP_up:
 	btfss STATUS,C
 	bra _pSP_up
 
-PAUSE = (.8000-(.64*NUM_PWM_PINS)) ; TODO: ..... measure correction using PICsim
+PAUSE = (.8000-(.64*NUM_PWM_PINS)-.56) ; TODO: ..... measure correction using PICsim
 	movlw low PAUSE
 	movwf l_Al
 	movlw high PAUSE
