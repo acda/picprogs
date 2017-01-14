@@ -78,7 +78,7 @@ def proc(t,dt):
 #	del ol
 
 	# move to point
-	SPEED = 100.0 # mm/sec
+	SPEED = 200.0 # mm/sec
 	P = POINTS[nP]
 	dx,dy = P[0]-curpos[0] , P[1]-curpos[1]
 	d = math.sqrt(dx*dx+dy*dy)
@@ -98,8 +98,8 @@ def proc(t,dt):
 	ang2*=fac
 	global lastang
 	if lastang is None: lastang = ang1,ang2
-	v1 = ang1 , (ang1-lastang[0])/dt
-	v2 = ang2 , (ang2-lastang[1])/dt
+	v1 = lastang[0] , (ang1-lastang[0])/dt
+	v2 = lastang[1] , (ang2-lastang[1])/dt
 	lastang = ang1,ang2
 
 	# DEBUG: send static values for measuring geometry.

@@ -10,6 +10,8 @@
 ; __config 0xDBFF
  __CONFIG _CONFIG2, _WRT_OFF & _PLLEN_ON & _STVREN_ON & _BORV_HI & _LVP_OFF
 
+; switch for 200Hz mode.
+use200Hz = 0
 
 ; vars on all banks
 ml_temp          = 0x70		; used by any subrt.
@@ -32,20 +34,20 @@ l_Ch             = 0x25
 l_Dl             = 0x26
 l_Dh             = 0x27
 
-;l_lastRXtime0   = 0x28
-l_CRCstate      = 0x29
+l_CRCstate      = 0x28
 
-l_secondsL       = 0x2A
-l_secondsH       = 0x2B
+l_secondsL       = 0x29
+l_secondsH       = 0x2A
 
-l_bufTXin        = 0x2C
-l_bufTXout       = 0x2D
-l_bufRXin        = 0x2E
-l_bufRXout       = 0x2F
+l_bufTXin        = 0x2B
+l_bufTXout       = 0x2C
+l_bufRXin        = 0x2D
+l_bufRXout       = 0x2E
 
-l_lopSBfram   = 0x30  ; ..... what is this??
+l_nextMeasure    = 0x2F	; compared against l_secondsH
 
-l_nextMeasure    = 0x31	; compared against l_secondsH
+l_tickTMR6cnt    = 0x30
+l_ticks_wo_data  = 0x31
 
 l_lastFrameBad   = 0x32
 l_signalLost     = 0x33
@@ -228,7 +230,7 @@ skipPauseOsc:
 	banksel TMR6
 	movlw .125 ; 125 is good divisor for powers of ten.
 	movwf PR6
-	movlw 0x07+8*(10-1)  ; prescale=1:64, enable, postscale is 5 for 200Hz, 10 for 100Hz.
+	movlw 0x07+8*(5-1)  ; prescale=1:64, enable, postscale is 5 for 200Hz, 10 for 100Hz.
 	movwf T6CON
 
 
@@ -273,6 +275,9 @@ skipStartPause:
 	movwf l_modeSwitch
 	movlw .10
 	movwf l_filterFirst
+	clrf l_tickTMR6cnt
+	movlw 0xFF
+	movwf l_ticks_wo_data
 
 	movlw low l_servoValuesBuffer
 	movwf FSR0L
@@ -454,6 +459,23 @@ _tytRx_done:
 	btfss PIR3,3		; TMR6IF
 	bra noSendServoPwm
 	bcf PIR3,3		; TMR6IF
+	; count event
+	incf l_tickTMR6cnt,1
+	incf l_ticks_wo_data,1
+	btfsc STATUS,Z
+	decf l_ticks_wo_data,1
+
+ if use200Hz==0	; if not 200Hz, skip every second call
+	btfsc l_tickTMR6cnt,0
+	bra _skip_genPWM
+ endif
+	; if have not seen data for a while, do not send.
+	movlw .30
+	subwf l_ticks_wo_data,0
+	btfsc STATUS,C
+	bra _skip_genPWM
+
+
 	; pick up how much T6 is over already.
 	; assuming mainloop time of at most 2k cycles. hopefully. So calc 64*(.32-TMR6) and delay so much to sync.
 	banksel TMR6
@@ -475,9 +497,15 @@ _tytRx_done:
 	call testRXTX
 
 ;	call DEBUG_output_value
+_skip_genPWM:
 
+	; if last data-send is not too long ago, add the speed values.
+	movlw .25
+	subwf l_ticks_wo_data,0
+	btfss STATUS,C
 	call add_servo_speedval
 
+	call testRX
 
 noSendServoPwm:
 
@@ -594,6 +622,7 @@ _calcCRC:
 	movlw high l_servoValuesBuffer
 	movwf FSR1H
 	call decodeFrame	;; takes roughly 440
+	clrf l_ticks_wo_data
 
 	; poll
 	movlw 1
