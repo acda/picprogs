@@ -17,8 +17,9 @@ leverLen2a = 120.0
 leverLen2b = 120.0
 pen_pos_over_len =   -5.17
 pen_pos_over_left = 22.4
-SERVO_LIMIT_DEG = 60.0
+SERVO_LIMIT_DEG = 47.0
 SERVO_ANG_PER_MILLISEC = -95.0	# or 93.2 or 95.0 ?
+
 
 # polygon of 'valid' target points. found by starting 'main' in here and entering it manually.
 # automating this would be cool.
@@ -60,7 +61,6 @@ def main(args):
 			ar[w+WIDTH*h] = calc_servo_angles_for_target((x,y))
 
 	maxx_d = 0.0
-	minn_d = 1.0e6
 	res1 = [' ']*WIDTH*HEIGHT
 	res2 = [' ']*WIDTH*HEIGHT
 	for h in xrange(HEIGHT):
@@ -75,7 +75,7 @@ def main(args):
 				ad = ar[w+WIDTH*(h+1)]
 				al = ar[w-1+WIDTH*h]
 				aR = ar[w+1+WIDTH*h]
-				a1,a2 = 'X','X'
+				a1 = 'X'
 				if not ((au[0] is None) or (au[1] is None) or (ad[0] is None) or (ad[1] is None) or (al[0] is None) or (al[1] is None) or (aR[0] is None) or (aR[1] is None)):
 					# calc gradient
 					dx1 = aR[0]-al[0]
@@ -87,16 +87,27 @@ def main(args):
 					d = math.sqrt(max(d1,d2))
 					# di is gradient of how much a move in x/y will affect servo rotations.
 					maxx_d = max(d,maxx_d)
-					minn_d = min(d,minn_d)
-					colidx1 = min(int(d/1.0+0.5),25)
-					colidx2 = min(int(50.0/d+0.5),25)
-					a1 = chr(ord('a')+colidx1)
-					a2 = chr(ord('a')+colidx2)
+					colidx = min(int(d*1.0+0.5),25)
+					a1 = chr(ord('a')+colidx)
+				_da = 0.3333
+				ppr_u = calc_pos_from_servo_angles(a[0]+_da,a[1])
+				ppr_d = calc_pos_from_servo_angles(a[0]-_da,a[1])
+				ppr_l = calc_pos_from_servo_angles(a[0],a[1]+_da)
+				ppr_r = calc_pos_from_servo_angles(a[0],a[1]-_da)
+				if not ((ppr_u is None) or (ppr_d is None) or (ppr_l is None) or (ppr_r is None)):
+					dx1,dy1 = ppr_u[0]-ppr_d[0],ppr_l[0]-ppr_r[0]
+					dx2,dy2 = ppr_u[1]-ppr_d[1],ppr_l[1]-ppr_r[1]
+					d1 = dx1*dx1+dy1*dy1
+					d2 = dx2*dx2+dy2*dy2
+					d = math.sqrt(max(d1,d2))
+					# di is gradient of how much a move in angles will affect x/y.
+					maxx_d = max(d,maxx_d)
+					colidx = min(int(d*2.0+0.5),25)
+					a2 = chr(ord('a')+colidx)
 			res1[w+WIDTH*h] = a1
 			res2[w+WIDTH*h] = a2
 
 	print "maxx_d = %.1f" % (maxx_d,)
-	print "minn_d = %.1f" % (minn_d,)
 	res1 = ''.join(res1)
 	res2 = ''.join(res2)
 
@@ -120,6 +131,14 @@ def main(args):
 
 
 len1bgross = None	# calc'd on first use.
+def calc_len1bgross():
+	global len1bgross
+	global _pen2left
+	_x = leverLen1b + pen_pos_over_len
+	_y = pen_pos_over_left
+	len1bgross = math.sqrt(_x*_x+_y*_y) # len1b to pen
+	_pen2left = math.atan2(_y,_x)
+
 def calc_servo_angles_for_target(targetpoint):
 	# calc points of joints
 	global len1bgross
@@ -131,10 +150,7 @@ def calc_servo_angles_for_target(targetpoint):
 #		return None,None
 
 	if len1bgross is None:
-		_x = leverLen1b + pen_pos_over_len
-		_y = pen_pos_over_left
-		len1bgross = math.sqrt(_x*_x+_y*_y) # len1b to pen
-		_pen2left = math.atan2(_y,_x)
+		calc_len1bgross()
 	# calc first lever
 	j1 = circles_cut(ServoPos1,leverLen1a,targetpoint,len1bgross)
 	if len(j1)<1:
@@ -159,7 +175,45 @@ def calc_servo_angles_for_target(targetpoint):
 	if a1<-SERVO_LIMIT_DEG or a1>SERVO_LIMIT_DEG: a1=None
 	if a2<-SERVO_LIMIT_DEG or a2>SERVO_LIMIT_DEG: a2=None
 
+	#if (a1 is not None) and (a2 is not None):
+	#	_pp = calc_pos_from_servo_angles(a1,a2)
+	#	if _pp is not None:
+	#		_dx,_dy = _pp[0]-targetpoint[0] , _pp[1]-targetpoint[1]
+	#		_d = math.sqrt(_dx*_dx+_dy*_dy)
+	#		print "DEBUG: tp=(%5.1f/%5.1f)   _d=%.3f" % (targetpoint[0],targetpoint[1],_d)
+	#	else:
+	#		print "DEBUG: tp=(%5.1f/%5.1f)   _d=N/A" % (targetpoint[0],targetpoint[1])
+
 	return a1,a2
+
+
+def calc_pos_from_servo_angles(ang1,ang2):
+	global len1bgross
+	global _pen2left
+	ang1 = (ang1+ServoNullAngle1)*math.pi/180.0
+	ang2 = (ang2+ServoNullAngle2)*math.pi/180.0
+	c1,s1 = math.cos(ang1),math.sin(ang1)
+	c2,s2 = math.cos(ang2),math.sin(ang2)
+	j1 = ServoPos1[0] + c1*leverLen1a , ServoPos1[1] + s1*leverLen1a
+	j2 = ServoPos2[0] + c2*leverLen2a , ServoPos2[1] + s2*leverLen2a
+	# limit against crossing
+	if math.atan2(-j1[0],j1[1]) < math.atan2(-j2[0],j2[1]):
+		return None
+	# j3 from cut-of-circles.
+	j3 = circles_cut(j1,leverLen1b,j2,leverLen2b)
+	if len(j3)<1:
+		return None
+	if len(j3)<=1 or j3[0][1]>j3[1][1]:
+		j3=j3[0]
+	else:
+		j3=j3[1]
+	# now penpos.
+	ang2b = math.atan2(j3[1]-j1[1],j3[0]-j1[0])
+	if len1bgross is None:
+		calc_len1bgross()
+	penpos = j1[0]+math.cos(ang2b+_pen2left)*len1bgross , j1[1]+math.sin(ang2b+_pen2left)*len1bgross
+
+	return penpos
 
 
 ValidAreaEdges = None # filled in on first access

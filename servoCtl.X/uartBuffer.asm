@@ -119,6 +119,23 @@ testRXavail:
 	xorwf l_bufRXout,0
 	return
 
+testRX_OERR:
+	banksel RCSTA
+	btfsc RCSTA,OERR
+	bra $+3
+	banksel 0
+	return
+	; is oerr. disable/enable RX. drop all data.
+	bcf RCSTA,CREN
+	banksel 0
+	movf l_bufRXin,0
+	movwf l_bufRXout
+	banksel RCSTA
+	bsf RCSTA,CREN
+	banksel 0
+	return
+
+
 getRX:
 	; get a byte from the RX ringbuffer (must have checked availability before!)
 	; time: 2+18

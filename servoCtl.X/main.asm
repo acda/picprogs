@@ -411,6 +411,7 @@ noPutTXS:
 
 	; check RX and TX flags
 	call testRXTX
+	call testRX_OERR
 
 	; pick up input data to recv buffer.
 	banksel 0
