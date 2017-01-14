@@ -18,7 +18,8 @@ serport = '/dev/ttyUSB0'
 
 #POINTS = ((-90.0,155.0),(0.0,200.0),(90.0,150.0))
 #POINTS = ((-60.0,145.0),(-30.0,180.0),(30.0,180.0),(60.0,145.0))
-POINTS = ((60.0,145.0),(30.0,180.0),(-30.0,180.0),(-60.0,145.0))
+#POINTS = ((60.0,145.0),(30.0,180.0),(-30.0,180.0),(-60.0,145.0))
+POINTS = ((30.0,145.0),(30.0,180.0),(-30.0,180.0),(-30.0,145.0))
 
 
 ser = None
@@ -46,10 +47,12 @@ def main(args):
 		_rt = time.time()+toff
 		if _rt<t:
 			# ahead. delay
-			time.sleep(dt)
-		elif _rt>0.5:
+			time.sleep(t-_rt)
+		elif _rt>t+0.5:
 			# too far behind. adjust offset a little.
-			toff -= (_rt-0.5)
+			_tf = _rt-t-0.5
+			print "...lagging...%.3fsec" % _tf
+			toff -= _tf
 
 	return 0
 
@@ -124,7 +127,7 @@ def proc(t,dt):
 #	v3 = (0.0,-0.75,0,0.75)[_t&3]
 
 
-	dat = build_frame((v1,v2,v3,v4,v5,v6))
+	dat = build_frame((v1,v2,v3,v4,v5,v6,v5,v6,v5,v6,v5,v6))
 #	dat = build_frame((v3,v4,v5,v6,v1,v2))
 #	dat = "S\x00\x0C3456789abcdef0123456789ABCDEF0123456C"
 

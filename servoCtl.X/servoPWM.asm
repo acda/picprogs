@@ -1,6 +1,6 @@
 
 
-NUM_PWM_PINS = 0x0A
+NUM_PWM_PINS = 0x0C
 
 prepareAndSendServoPWM:
 

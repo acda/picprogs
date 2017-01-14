@@ -169,9 +169,10 @@ skipPauseOsc:
 	clrf LATA
 	bcf LATB,portB_led
 	banksel TRISA
-	movlw 0x20
+	movlw 0x20	; A all outputs except for MCLR
 	movwf TRISA
-	movlw 0xFF-(1<<portB_TX)-(1<<portB_led)
+;	movlw 0xFF-(1<<portB_TX)-(1<<portB_led)
+	movlw (1<<portB_RX)	; B all outputs except for RX
 	movwf TRISB
 	banksel IOCBF
 	clrf IOCBP
