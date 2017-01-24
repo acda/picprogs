@@ -70,12 +70,34 @@ def build_frame(values,dt):
 		val1 = min(max(val1,0),4095)
 		val2 = int((val2+1.0)*2047.5+0.5)
 		val2 = min(max(val2,0),4095) ^ 2048
+		#val2 = 0
 
 		res.append( chr(val1&255) + chr((val1>>8)+((val2&15)<<4)) + chr(val2>>4) )
+
+	_build_frame_last = values
 
 	# join, add CRC and return it.
 	res = ''.join(res)
 	return res + calcCRC8(res)
+
+def dbg_print_frame(fram):
+	if len(fram)!=40:
+		print "Frame (bad length)"
+		return
+	_sta = 'ok'
+	if fram[39]!=calcCRC8(fram[:39]):
+		_sta = 'bad'
+	print "Frame (CRC %s)" % _sta
+	ll = list()
+	for ch in xrange(6):
+		a,b,c = fram[3+3*ch:6+3*ch]
+		_p = ord(a) + (ord(b)&15)*256
+		_s = (ord(b)>>4) + (ord(c))*16
+		if _s>=2048:
+			_s -= 4096
+		ll.append("%4d:%5d"%(_p,_s))
+	print "    %s    %s    %s" % tuple(ll[:3])
+	print "    %s    %s    %s" % tuple(ll[3:6])
 
 
 CRCtab = None
