@@ -1,18 +1,23 @@
+
+
+
 ; PIC12F1840 Configuration Bit Settings
 #include "p12F1840.inc"
 
 
 ;config bits: internal osc.
 ; CONFIG1
-; __config 0x2FE4
- __CONFIG _CONFIG1, _FOSC_INTOSC & _WDTE_OFF & _PWRTE_OFF & _MCLRE_ON & _CP_OFF & _CPD_OFF & _BOREN_ON & _CLKOUTEN_OFF & _IESO_OFF & _FCMEN_ON
+; __config 0x2FA4
+ __CONFIG _CONFIG1, _FOSC_INTOSC & _WDTE_OFF & _PWRTE_OFF & _MCLRE_OFF & _CP_OFF & _CPD_OFF & _BOREN_ON & _CLKOUTEN_OFF & _IESO_OFF & _FCMEN_ON
 ; CONFIG2
 ; __config 0x1FFF
  __CONFIG _CONFIG2, _WRT_OFF & _PLLEN_ON & _STVREN_ON & _BORV_LO & _LVP_OFF
 
 
-NUM_LEDS = .54	; max 0x60!!!
+NUM_LEDS = .15	; max 0x60!!!
 
+ANIMS_NUMBER = .3
+BUTTON_TM_THRES = .100
 
 ; vars on all banks
 ml_temp          = 0x70		; used by any subrt.
@@ -24,6 +29,7 @@ ml_ledSequenceCount = 0x76
 ml_txCount       = 0x78
 ml_count         = 0x7A
 ml_bitcount      = 0x7B
+ml_stackptr      = 0x7C
 
 ; vars bound to bank 0
 l_Al             = 0x20
@@ -34,8 +40,14 @@ l_Cl             = 0x24
 l_Ch             = 0x25
 l_Dl             = 0x26
 l_Dh             = 0x27
-l_in16bitL       = 0x28
-l_in16bitH       = 0x29
+l_state1         = 0x28
+l_state2         = 0x29
+l_state3         = 0x2A
+l_state4         = 0x2B
+
+l_button         = 0x2C
+l_anim_no        = 0x2D
+; 4 free ?
 l_TempAl         = 0x30
 l_TempAh         = 0x31
 l_TempBl         = 0x32
@@ -50,7 +62,6 @@ l_colB         = 0x42
 l_colH         = 0x43
 l_colS         = 0x44
 l_colV         = 0x45
-l_tempmark     = 0x46
 l_pos          = 0x47
 l_X            = 0x48
 
@@ -65,13 +76,15 @@ l_scratch  = 0x58	; 8 bytes
 
 ; PIC 12F1840
 portA_TX = 0
-portA_I2Cc = 1
-portA_I2Cd = 2
+;portA_I2Cc = 1
+;portA_I2Cd = 2
+portA_alive = 2
+portA_button = 3
 portA_pin = 4
-portA_led = 5
-portA_RX = 5
 
-bufferLED = 0x2040		; size 2*NUM_LEDS, max 0x9A or 0x4D LEDs (=77d)
+bufferLED = 0x2040		; size 3*NUM_LEDS, max 0x90 or 0x30 LEDs (=48d)
+
+stackarea = 0x20F0      ; downward. must be area so low-byte does not wrap.
 
 bufferTX = 0x20DA
 bufferTXend = 0x20EE
@@ -109,9 +122,9 @@ pauseOsc:
 	movwf WPUA
 	banksel LATA
 	bcf LATA,portA_pin
-	bcf LATA,portA_led
+	bcf LATA,portA_alive
 	banksel TRISA
-	movlw 0xFF-(1<<portA_pin)-(1<<portA_TX)-(1<<portA_led)
+	movlw 0xFF-(1<<portA_pin)-(1<<portA_TX)-(1<<portA_alive)
 	movwf TRISA
 	banksel OPTION_REG
 	bcf OPTION_REG,7	; enable pull-ups with WPUx
@@ -196,6 +209,8 @@ startPause:
 
 	; Vars setup
 	banksel 0
+	movlw low stackarea
+	movwf ml_stackptr
 	clrf l_bufTXin
 	clrf l_bufTXout
 	clrf l_bufRXin
@@ -206,6 +221,16 @@ startPause:
 	clrf l_secondsL
 	clrf l_secondsH
 	clrf l_nextMeasure
+
+	clrf l_state1
+	clrf l_state2
+	clrf l_state3
+	clrf l_state4
+
+	movlw 0xFF
+	movwf l_button
+	clrf l_anim_no
+
 
 	; pre-loop
 	banksel 0
@@ -255,135 +280,74 @@ mainloop:
 	movwf ml_temp
 	banksel TRISA
 	movf TRISA,0
-	bcf WREG,portA_led
+	bcf WREG,portA_alive
 	btfsc ml_temp,7
-	bsf WREG,portA_led
+	bsf WREG,portA_alive
 	movwf TRISA
 	banksel 0
 
-	; check to call I2C temperature. Once a second.
-	movf l_nextMeasure,0
-	subwf l_secondsH,0
-	btfss STATUS,Z
-	bra $+3
-	incf l_nextMeasure,1
-	call doI2C_call_and_output
 
-	banksel 0
+
 
 	nop
 
-	call testTX
-;	call testRX
-
-;	call getRX
-;	btfss ml_temp,0
-;	bra noRX
-;	movwf ml_temp3
-;	call putTX
-;	movlw 0x0D
-;	subwf ml_temp3,0
-;	btfss STATUS,Z
-;	bra noRX
-;	movlw 0x0A
-;	call putTX
-;noRX:
-	nop
-
-	call calcPattern
+	call call_anim
 
 	banksel 0
 
 	call sendLEDstrip
 
+	; poll button
+	btfsc PORTA,portA_button
+	bra _main__buttPrs
+	; is up. increase state, cap at 0xFF
+	incf l_button,1
+	btfsc STATUS,Z
+	decf l_button,1
+	bra _main__buttDone
+_main__buttPrs:
+	movlw BUTTON_TM_THRES
+	subwf l_button,0
+	clrf l_button
+	btfss STATUS,C
+	bra _main__buttDone
+	; change active animation
+	incf l_anim_no,1
+	movlw ANIMS_NUMBER
+	subwf l_anim_no,0
+	btfsc STATUS,C
+	clrf l_anim_no
+	clrf l_state1
+	clrf l_state2
+	clrf l_state3
+	clrf l_state4
+
+
+_main__buttDone:
+
+
 	nop
 	bra mainloop
 
-
-doI2C_call_and_output:
-	clrf l_TempValid
-	clrw
-	call I2C_IO
-	movf WREG,0
-	btfss STATUS,Z
-	bra doI2C_TempA_done
-	banksel 0
-	movf ml_temp,0
-	movwf l_TempAl
-	movf ml_temp2,0
-	movwf l_TempAh
-	bsf l_TempValid,0
-doI2C_TempA_done:
-	movlw 0x01
-	call I2C_IO
-	movf WREG,0
-	btfss STATUS,Z
-	bra doI2C_TempB_done
-	banksel 0
-	movf ml_temp,0
-	movwf l_TempBl
-	movf ml_temp2,0
-	movwf l_TempBh
-	bsf l_TempValid,1
-doI2C_TempB_done:
-
-
-
-	movlw 'T'
-	call putTX
-	movlw 'e'
-	call putTX
-	movlw 'm'
-	call putTX
-	movlw 'p'
-	call putTX
-	movlw ':'
-	call putTX
-	movlw ' '
-	call putTX
-	banksel 0
-	btfss l_TempValid,0
-	bra $+7
-	movf l_TempAl,0
-	movwf l_Al
-	movf l_TempAh,0
-	movwf l_Ah
-	call putDecimalTemp
-	bra $+5
-	movlw 'E'
-	call putTX
-	movlw 'r'
-	call putTX
-
-	movlw ' '
-	call putTX
-
-	banksel 0
-	btfss l_TempValid,1
-	bra $+7
-	movf l_TempBl,0
-	movwf l_Al
-	movf l_TempBh,0
-	movwf l_Ah
-	call putDecimalTemp
-	bra $+5
-	movlw 'E'
-	call putTX
-	movlw 'r'
-	call putTX
-
-;	movlw ' '
-;	call putTX
-;	banksel 0
-;	incf l_TempC,1
-;	movf l_TempC,0
-;	call putDecimalTemp
-;
-	movlw 0x0A
-	call putTX
-	movlw 0x0D
-	call putTX
-
+call_anim:
+	lslf l_anim_no,0
+	andlw 0x0E
+	brw
+	call gen_pattern1
+	return
+	call gen_pattern2
+	return
+	call gen_pattern3
+	return
+	call gen_pattern3
+	return
+	call gen_pattern3
+	return
+	call gen_pattern3
+	return
+	call gen_pattern3
+	return
+	call gen_pattern3
 	return
 
 
@@ -454,10 +418,6 @@ noNeg:
 
 ;====================================================================
 
-#include "I2Ccode.asm"
-
-;====================================================================
-
 #include "LEDstrip.asm"
 
 ;====================================================================
@@ -487,13 +447,43 @@ getHexDigit:
 	retlw 0
 
 ;====================================================================
+
+; stack (uses FSR0 and  ml_temp)
+start_stack:
+	movlw high stackarea
+	movwf FSR0H
+	movf ml_stackptr,0
+	movwf FSR0L
+	return
+
+done_stack:
+	movf FSR0L,0
+	movwf ml_stackptr
+	return
+
+push_stack:
+	movwi --FSR0
+	return
+
+pop_stack:
+	moviw FSR0++
+	return
+
+;====================================================================
 ; math stuff.
 ;====================================================================
 
 #include "../shared/mathFuncs.asm"
 
 ;====================================================================
-; Color patterns
+
+	; pattern generators
+#include "pattern1.asm"
+#include "pattern2.asm"
+#include "pattern3.asm"
+;#include "pattern4.asm"
+;#include "pattern5.asm"
+
 #include "colorful.asm"
 
 ;====================================================================

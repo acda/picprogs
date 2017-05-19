@@ -13,10 +13,7 @@
                    displayName="Source Files"
                    projectFiles="true">
       <itemPath>main.asm</itemPath>
-      <itemPath>mathFuncs.asm</itemPath>
-      <itemPath>mathTables.asm</itemPath>
       <itemPath>uartBuffer.asm</itemPath>
-      <itemPath>colorful.asm</itemPath>
       <itemPath>I2Ccode.asm</itemPath>
       <itemPath>LEDstrip.asm</itemPath>
     </logicalFolder>
@@ -318,30 +315,6 @@
                   value=""/>
         <property key="warningmessagebreakoptions.warningmessages" value="holdstate"/>
       </Simulator>
-      <item path="colorful.asm" ex="true" overriding="false">
-        <MPASMWIN-AS>
-        </MPASMWIN-AS>
-        <MPASMWIN-LD>
-        </MPASMWIN-LD>
-        <mpasmsuite>
-        </mpasmsuite>
-      </item>
-      <item path="mathFuncs.asm" ex="true" overriding="false">
-        <MPASMWIN-AS>
-        </MPASMWIN-AS>
-        <MPASMWIN-LD>
-        </MPASMWIN-LD>
-        <mpasmsuite>
-        </mpasmsuite>
-      </item>
-      <item path="mathTables.asm" ex="true" overriding="false">
-        <MPASMWIN-AS>
-        </MPASMWIN-AS>
-        <MPASMWIN-LD>
-        </MPASMWIN-LD>
-        <mpasmsuite>
-        </mpasmsuite>
-      </item>
       <mpasmsuite>
         <property key="absolute-mode" value="false"/>
         <property key="eeprom-width" value="8"/>
