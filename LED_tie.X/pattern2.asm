@@ -9,7 +9,7 @@ gen_pattern2:
 	movlw NUM_LEDS
 	call multiply_8_8_16
 	movf l_Ah,0
-	movwf l_state1
+	movwf l_state+0
 
 	movlw low bufferLED
 	movwf FSR1L
@@ -27,7 +27,7 @@ _pat2__lop:
 	movlw 0x05
 	movwf ml_temp
 	movf l_pos,0
-	subwf l_state1,0
+	subwf l_state+0,0
 	btfss STATUS,Z
 	bra $+3
 	movlw 0x3F

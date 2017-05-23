@@ -10,7 +10,7 @@ gen_pattern1:
 	call multiply_8_8_16
 	movf l_Ah,0
 	bcf WREG,0
-	movwf l_state1
+	movwf l_state+0
 
 	movlw low bufferLED
 	movwf FSR1L
@@ -28,7 +28,7 @@ _pat1__lop:
 	movlw 0x01
 	movwf ml_temp
 	movf l_pos,0
-	subwf l_state1,0
+	subwf l_state+0,0
 	btfss STATUS,Z
 	bra $+3
 	movlw 0xFF
@@ -50,7 +50,7 @@ _pat1__lop:
 ;	movwf FSR1L
 ;	movlw high bufferLED
 ;	movwf FSR1H
-;	movf l_state1,0
+;	movf l_state+0,0
 ;	movwi 4[FSR1]
 ;	movlw 0
 ;	movwi 3[FSR1]

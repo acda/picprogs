@@ -15,7 +15,6 @@
       <itemPath>main.asm</itemPath>
       <itemPath>LEDstrip.asm</itemPath>
       <itemPath>colorful.asm</itemPath>
-      <itemPath>uartBuffer.asm</itemPath>
       <itemPath>pattern1.asm</itemPath>
       <itemPath>pattern2.asm</itemPath>
       <itemPath>pattern3.asm</itemPath>
@@ -113,10 +112,14 @@
         </mpasmsuite>
       </item>
       <item path="pattern2.asm" ex="true" overriding="false">
+        <MPASMWIN-AS>
+        </MPASMWIN-AS>
+        <MPASMWIN-LD>
+        </MPASMWIN-LD>
+        <mpasmsuite>
+        </mpasmsuite>
       </item>
       <item path="pattern3.asm" ex="true" overriding="false">
-      </item>
-      <item path="uartBuffer.asm" ex="true" overriding="false">
         <MPASMWIN-AS>
         </MPASMWIN-AS>
         <MPASMWIN-LD>

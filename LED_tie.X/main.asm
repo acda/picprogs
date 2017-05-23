@@ -40,22 +40,16 @@ l_Cl             = 0x24
 l_Ch             = 0x25
 l_Dl             = 0x26
 l_Dh             = 0x27
-l_state1         = 0x28
-l_state2         = 0x29
-l_state3         = 0x2A
-l_state4         = 0x2B
 
-l_button         = 0x2C
-l_anim_no        = 0x2D
-; 4 free ?
-l_TempAl         = 0x30
-l_TempAh         = 0x31
-l_TempBl         = 0x32
-l_TempBh         = 0x33
-l_TempValid      = 0x38
-l_secondsL       = 0x39
-l_secondsH       = 0x3A
-l_nextMeasure    = 0x3B	; compared against l_secondsH
+l_button         = 0x28
+l_anim_no        = 0x29
+
+l_secondsL       = 0x2A
+l_secondsH       = 0x2B
+l_nextMeasure    = 0x2C	; compared against l_secondsH
+
+l_state          = 0x30
+
 l_colR         = 0x40
 l_colG         = 0x41
 l_colB         = 0x42
@@ -65,12 +59,7 @@ l_colV         = 0x45
 l_pos          = 0x47
 l_X            = 0x48
 
-l_bufTXin       = 0x50
-l_bufTXout      = 0x51
-l_bufRXin       = 0x52
-l_bufRXout      = 0x53
-
-l_scratch  = 0x58	; 8 bytes
+l_scratch  = 0x49	; 0x17 bytes
 
 
 
@@ -211,41 +200,18 @@ startPause:
 	banksel 0
 	movlw low stackarea
 	movwf ml_stackptr
-	clrf l_bufTXin
-	clrf l_bufTXout
-	clrf l_bufRXin
-	clrf l_bufRXout
 	clrf ml_txCount
 	clrf ml_timeCount
-	clrf l_TempValid
 	clrf l_secondsL
 	clrf l_secondsH
 	clrf l_nextMeasure
 
-	clrf l_state1
-	clrf l_state2
-	clrf l_state3
-	clrf l_state4
+	call clr_state
 
 	movlw 0xFF
 	movwf l_button
 	clrf l_anim_no
 
-
-	; pre-loop
-	banksel 0
-	movlw 0x0A
-	call putTX
-	movlw 0x0D
-	call putTX
-	movlw 'G'
-	call putTX
-	movlw 'o'
-	call putTX
-	movlw 0x0A
-	call putTX
-	movlw 0x0D
-	call putTX
 
 mainloop:
 	banksel 0
@@ -317,10 +283,7 @@ _main__buttPrs:
 	subwf l_anim_no,0
 	btfsc STATUS,C
 	clrf l_anim_no
-	clrf l_state1
-	clrf l_state2
-	clrf l_state3
-	clrf l_state4
+	call clr_state
 
 
 _main__buttDone:
@@ -328,6 +291,25 @@ _main__buttDone:
 
 	nop
 	bra mainloop
+
+clr_state:
+	clrf l_state+0x00
+	clrf l_state+0x01
+	clrf l_state+0x02
+	clrf l_state+0x03
+	clrf l_state+0x04
+	clrf l_state+0x05
+	clrf l_state+0x06
+	clrf l_state+0x07
+	clrf l_state+0x08
+	clrf l_state+0x09
+	clrf l_state+0x0A
+	clrf l_state+0x0B
+	clrf l_state+0x0C
+	clrf l_state+0x0D
+	clrf l_state+0x0E
+	clrf l_state+0x0F
+	return
 
 call_anim:
 	lslf l_anim_no,0
@@ -351,100 +333,9 @@ call_anim:
 	return
 
 
-putDecimalTemp:
-	banksel 0
-
-	; test sign
-	btfss l_Ah,7
-	bra noNeg
-	movlw '-'
-	call putTX
-	banksel 0
-	clrf ml_temp	; negate l_A
-	movf l_Al,0
-	sublw 0
-	movwf l_Al
-	movf l_Ah,0
-	subwfb ml_temp,0
-	movwf l_Ah
-	bra $+3
-noNeg:
-	movlw ' '
-	call putTX
-	banksel 0
-	; shift integer part into one byte
-	lslf l_Al,0
-	movwf ml_temp
-	rlf l_Ah,0
-	lslf ml_temp,1
-	rlf WREG,0
-	lslf ml_temp,1
-	rlf WREG,0
-	lslf ml_temp,1
-	rlf WREG,0
-	movwf ml_temp3
-	call div_by_10
-	addlw '0'
-	movwf ml_temp2
-	movf ml_temp,0
-	addlw '0'
-	movwf ml_temp3
-	movf ml_temp2,0
-	call putTX
-	movf ml_temp3,0
-	call putTX
-	movlw '.'
-	call putTX
-	banksel 0
-	; after-comma
-	; take low-bits *20,div16   or:  *5 , div4
-	movlw 0x0F
-	andwf l_Al,0
-	movwf ml_temp3
-	lslf WREG,0
-	lslf WREG,0
-	addwf ml_temp3,1
-	lsrf ml_temp3,1
-	lsrf ml_temp3,1
-	; digit
-	lsrf ml_temp3,0
-	addlw '0'
-	call putTX
-	movlw '0'
-	btfsc ml_temp3,0
-	movlw '5'
-	call putTX
-	return
-
 ;====================================================================
 
 #include "LEDstrip.asm"
-
-;====================================================================
-; UART <=> Ringbuffer stuff.
-;====================================================================
-
-#include "uartBuffer.asm"
-
-;===================
-putHEX:
-	movwf ml_temp2
-	lsrf WREG,1
-	lsrf WREG,1
-	lsrf WREG,1
-	lsrf WREG,1
-	call getHexDigit
-	call putTX
-	movf ml_temp2,0
-	call getHexDigit
-	goto putTX
-
-getHexDigit:
-	andlw 0x0F
-	brw
-	dw 0x3430,0x3431,0x3432,0x3433,0x3434,0x3435,0x3436,0x3437
-	dw 0x3438,0x3439,0x3441,0x3442,0x3443,0x3444,0x3445,0x3446
-	retlw 0
 
 ;====================================================================
 

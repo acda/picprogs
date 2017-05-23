@@ -49,8 +49,6 @@ loopR:
 	btfss ml_bitcount,3
 	bra loopR
 
-	call testRX
-
 	banksel 0
 	; get B-value
 	moviw FSR0++
