@@ -48,7 +48,7 @@ _pat2__lop:
 ;	movwf FSR1L
 ;	movlw high bufferLED
 ;	movwf FSR1H
-;	movf l_state1,0
+;	movf l_state+0,0
 ;	movwi 4[FSR1]
 ;	movlw 0
 ;	movwi 3[FSR1]

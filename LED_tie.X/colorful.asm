@@ -4,7 +4,7 @@
 
 
 ; color from  l_colR/l_colG/l_colB  ->  pos in l_Al:l_Ah
-; uses (all?)
+; uses FSR0, ml_temp/ml_temp2, l_Ax, 6 bytes on stack
 mix_in:
 	; same some vars
 	call start_stack
@@ -15,6 +15,10 @@ mix_in:
 	movf ml_temp2,0
 	movwi --FSR0
 	movf ml_temp3,0
+	movwi --FSR0
+	movf FSR1L,0
+	movwi --FSR0
+	movf FSR1H,0
 	movwi --FSR0
 	call done_stack
 
@@ -80,6 +84,10 @@ mix_in:
 _mix_in__leave:
 	; restore lots
 	call start_stack
+	moviw FSR0++
+	movwf FSR1H
+	moviw FSR0++
+	movwf FSR1L
 	moviw FSR0++
 	movwf ml_temp3
 	moviw FSR0++
@@ -179,4 +187,148 @@ _blend_col__full:
 	movf l_colB,0
 	movwi 2[FSR1]
 	return
+
+
+
+
+
+convert_HSV_to_RGB:
+	; convert HSV ...
+	; input: in l_colH/l_colS/l_colV
+	; output: in l_colR/l_colG/l_colB
+	; uses
+
+	; same some vars
+	call start_stack
+	movf l_Cl,0
+	movwi --FSR0
+	movf l_Ch,0
+	movwi --FSR0
+	call done_stack
+
+	; calc Cx := 6*H
+	clrf l_Ch
+	lslf l_colH,0
+	movwf l_Cl
+	btfsc STATUS,C
+	incf l_Ch,1
+	movf l_colH,0
+	addwf l_Cl,1
+	btfsc STATUS,C
+	incf l_Ch,1
+	lslf l_Cl,1
+	rlf l_Ch,1
+	movf l_Ch,0
+	brw
+	bra hue0
+	bra hue1
+	bra hue2
+	bra hue3
+	bra hue4
+	bra hue5
+hue0:
+	movlw 0xFF
+	movwf l_colR
+	movf l_Cl,0
+	movwf l_colG
+	clrf l_colB
+	bra hueDone
+hue1:
+	movf l_Cl,0
+	sublw 0xFF
+	movwf l_colR
+	movlw 0xFF
+	movwf l_colG
+	clrf l_colB
+	bra hueDone
+hue2:
+	clrf l_colR
+	movlw 0xFF
+	movwf l_colG
+	movf l_Cl,0
+	movwf l_colB
+	bra hueDone
+hue3:
+	clrf l_colR
+	movf l_Cl,0
+	sublw 0xFF
+	movwf l_colG
+	movlw 0xFF
+	movwf l_colB
+	bra hueDone
+hue4:
+	movf l_Cl,0
+	movwf l_colR
+	clrf l_colG
+	movlw 0xFF
+	movwf l_colB
+	bra hueDone
+hue5:
+	movlw 0xFF
+	movwf l_colR
+	clrf l_colG
+	movf l_Cl,0
+	sublw 0xFF
+	movwf l_colB
+hueDone:
+	; do saturation
+	movf l_colS,0
+	btfsc STATUS,Z
+	incf l_colS,1
+	; sat R
+	movf l_colR,0
+	movwf l_Al
+	movf l_colS,0
+	call multiply_8_8_16
+	movf l_colS,0
+	sublw 0
+	addwf l_Ah,0
+	movwf l_colR
+	; sat G
+	movf l_colG,0
+	movwf l_Al
+	movf l_colS,0
+	call multiply_8_8_16
+	movf l_colS,0
+	sublw 0
+	addwf l_Ah,0
+	movwf l_colG
+	; sat B
+	movf l_colB,0
+	movwf l_Al
+	movf l_colS,0
+	call multiply_8_8_16
+	movf l_colS,0
+	sublw 0
+	addwf l_Ah,0
+	movwf l_colB
+
+	; do V (brightness)
+	movf l_colR,0
+	movwf l_Al
+	movf l_colV,0
+	call multiply_8_8_16
+	movf l_Ah,0
+	movwf l_colR
+	movf l_colG,0
+	movwf l_Al
+	movf l_colV,0
+	call multiply_8_8_16
+	movf l_Ah,0
+	movwf l_colG
+	movf l_colB,0
+	movwf l_Al
+	movf l_colV,0
+	call multiply_8_8_16
+	movf l_Ah,0
+	movwf l_colB
+
+
+	; restore vars and return
+	call start_stack
+	moviw FSR0++
+	movwf l_Ch
+	moviw FSR0++
+	movwf l_Cl
+	goto done_stack
 

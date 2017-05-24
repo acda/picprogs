@@ -16,7 +16,7 @@
 
 NUM_LEDS = .15	; max 0x60!!!
 
-ANIMS_NUMBER = .3
+ANIMS_NUMBER = .5
 BUTTON_TM_THRES = .100
 
 ; vars on all banks
@@ -48,7 +48,7 @@ l_secondsL       = 0x2A
 l_secondsH       = 0x2B
 l_nextMeasure    = 0x2C	; compared against l_secondsH
 
-l_state          = 0x30
+l_state          = 0x30 ; 0x10 bytes.
 
 l_colR         = 0x40
 l_colG         = 0x41
@@ -285,7 +285,6 @@ _main__buttPrs:
 	clrf l_anim_no
 	call clr_state
 
-
 _main__buttDone:
 
 
@@ -321,15 +320,15 @@ call_anim:
 	return
 	call gen_pattern3
 	return
-	call gen_pattern3
+	call gen_pattern4
 	return
-	call gen_pattern3
+	call gen_pattern5
 	return
-	call gen_pattern3
+	call gen_pattern5
 	return
-	call gen_pattern3
+	call gen_pattern5
 	return
-	call gen_pattern3
+	call gen_pattern5
 	return
 
 

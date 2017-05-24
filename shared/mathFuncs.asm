@@ -3,6 +3,7 @@
 
 multiply_8_8_16:
 	; mult ml_Al with WREG. Result in WREG/ml_Al, high in ml_Ah
+	; uses ml_temp/ml_temp2
 	; max 50
 	banksel 0
 	movlp high getSquareQuarterLow
