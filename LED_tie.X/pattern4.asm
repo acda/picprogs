@@ -4,24 +4,23 @@
 ;
 ;   +0 posL
 ;   +1 posH
-;   +2 speedL (only for acceleration)
-;   +3 speed
+;   +2 speedL (low only for acceleration)
+;   +3 speed  [5:11]
 ;   +4 <unused>
 ;
-; state2: low: speedA, high: speedB.  [0:4] , add 0x8[0:4]
-; state3/4: posA  [8:8]
-; state5/6: posB  [8:8]
 
-PAT4_NUM_DROPPERS = 2
+PAT4_NUM_DROPPERS = 3
 
+
+; white droppers
 
 gen_pattern4:
 	banksel 0
 	; calc timestep
-	movf l_state1,0
+	movf l_state+0,0
 	subwf l_secondsL,0
-	addwf l_state1,1
-	; have timestep.
+	addwf l_state+0,1
+	; have deltatime.
 	movwf ml_temp3
 
 	; clear
@@ -46,11 +45,11 @@ _pat4__clear:
 	clrf ml_temp4
 _pat4__loop:
 	; prepare FSR for dropper #.
-	; l_state + 5*# .
+	; l_state + 1 + 5*# .
 	lslf ml_temp4,0
 	lslf WREG,0
 	addwf ml_temp4,0
-	addlw l_state
+	addlw l_state+1
 	movwf FSR0L
 	clrf FSR0H
 	; mult speed*dT
@@ -58,7 +57,7 @@ _pat4__loop:
 	movwf l_Al
 	btfsc STATUS,Z
 	bsf l_Al,3+2 ; do not allow speed of zero.
-	movf ml_temp3,0
+	movf ml_temp3,0 ; dT [0:8]
 	call multiply_8_8_16
 	; A is pos-step [5:11]
 	; shift and add to pos.
@@ -72,7 +71,7 @@ _pat4__loop:
 	addwf l_Al,0
 	movwi 0[FSR0]
 	moviw 1[FSR0]
-	addwf l_Ah,0
+	addwfc l_Ah,0
 	movwi 1[FSR0]
 	movwf ml_temp
 	; check limit
@@ -86,7 +85,10 @@ _pat4__loop:
 	movwi 0[FSR0]
 	movwi 1[FSR0]
 	movwi 2[FSR0]
-	movlw 0x40  ; choose speed better.
+	; choose new speed
+	call rnd
+	andlw 0x7F
+	addlw 0x40
 	movwi 3[FSR0]
 _pat4__in_limit:
 	; put LED

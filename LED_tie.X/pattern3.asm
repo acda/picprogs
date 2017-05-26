@@ -1,5 +1,7 @@
 
 
+; "Knight-Rider" style red light.
+
 gen_pattern3:
 	banksel 0
 

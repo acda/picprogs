@@ -16,7 +16,7 @@
 
 NUM_LEDS = .15	; max 0x60!!!
 
-ANIMS_NUMBER = .5
+ANIMS_NUMBER = .6
 BUTTON_TM_THRES = .100
 
 ; vars on all banks
@@ -48,6 +48,9 @@ l_secondsL       = 0x2A
 l_secondsH       = 0x2B
 l_nextMeasure    = 0x2C	; compared against l_secondsH
 
+l_rndL           = 0x2E
+l_rndH           = 0x2F
+
 l_state          = 0x30 ; 0x10 bytes.
 
 l_colR         = 0x40
@@ -56,6 +59,7 @@ l_colB         = 0x42
 l_colH         = 0x43
 l_colS         = 0x44
 l_colV         = 0x45
+
 l_pos          = 0x47
 l_X            = 0x48
 
@@ -205,6 +209,9 @@ startPause:
 	clrf l_secondsL
 	clrf l_secondsH
 	clrf l_nextMeasure
+	movlw 0xFF
+	movwf l_rndL
+	movwf l_rndH
 
 	call clr_state
 
@@ -324,11 +331,30 @@ call_anim:
 	return
 	call gen_pattern5
 	return
-	call gen_pattern5
+	call gen_pattern6
 	return
-	call gen_pattern5
+	call gen_pattern6
 	return
-	call gen_pattern5
+	call gen_pattern6
+	return
+
+rnd:
+	banksel 0
+	movlw 3
+	movwf ml_temp
+_rnd__lop:
+	lsrf l_rndH,1
+	rrf l_rndL,1
+	btfss STATUS,C
+	bra $+5
+	movlw 0xBF  ; reverse of poly 0x15DFD
+	xorwf l_rndH,1
+	movlw 0xBA
+	xorwf l_rndL,1
+	nop
+	decfsz ml_temp,1
+	bra _rnd__lop
+	movf l_rndL,0
 	return
 
 
@@ -371,8 +397,9 @@ pop_stack:
 #include "pattern1.asm"
 #include "pattern2.asm"
 #include "pattern3.asm"
-;#include "pattern4.asm"
-;#include "pattern5.asm"
+#include "pattern4.asm"
+#include "pattern5.asm"
+#include "pattern6.asm"
 
 #include "colorful.asm"
 

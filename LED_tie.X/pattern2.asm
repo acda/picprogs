@@ -1,4 +1,5 @@
 
+; white walking light.
 
 gen_pattern2:
 	banksel 0
@@ -30,7 +31,7 @@ _pat2__lop:
 	subwf l_state+0,0
 	btfss STATUS,Z
 	bra $+3
-	movlw 0x3F
+	movlw 0x5F
 	movwf ml_temp
 
 	movf ml_temp,0

@@ -34,14 +34,17 @@ mix_in:
 
 
 	; calc start led.
-	lslf l_Bh,0
-	addwf l_Bh,0
-	addlw low bufferLED
+	movlw low bufferLED
 	movwf FSR1L
 	movlw high bufferLED
 	movwf FSR1H
-	clrf WREG
+
+	lslf l_Bh,0
+	addwf l_Bh,0
+	addwf FSR1L,1
+	movlw 0
 	addwfc FSR1H,1
+
 
 	; set first
 	movf l_Bl,0
@@ -197,25 +200,24 @@ convert_HSV_to_RGB:
 	; input: in l_colH/l_colS/l_colV
 	; output: in l_colR/l_colG/l_colB
 	; uses
-
+	banksel 0
 	; same some vars
-	call start_stack
-	movf l_Cl,0
-	movwi --FSR0
-	movf l_Ch,0
-	movwi --FSR0
-	call done_stack
+;	call start_stack
+;	movf l_Cl,0
+;	movwi --FSR0
+;	movf l_Ch,0
+;	movwi --FSR0
+;	call done_stack
 
 	; calc Cx := 6*H
 	clrf l_Ch
 	lslf l_colH,0
 	movwf l_Cl
-	btfsc STATUS,C
-	incf l_Ch,1
+	rlf l_Ch,1
 	movf l_colH,0
 	addwf l_Cl,1
-	btfsc STATUS,C
-	incf l_Ch,1
+	movlw 0
+	addwfc l_Ch,1
 	lslf l_Cl,1
 	rlf l_Ch,1
 	movf l_Ch,0
@@ -271,6 +273,7 @@ hue5:
 	sublw 0xFF
 	movwf l_colB
 hueDone:
+				bra _hsv__exit
 	; do saturation
 	movf l_colS,0
 	btfsc STATUS,Z
@@ -323,12 +326,13 @@ hueDone:
 	movf l_Ah,0
 	movwf l_colB
 
-
+_hsv__exit:
 	; restore vars and return
-	call start_stack
-	moviw FSR0++
-	movwf l_Ch
-	moviw FSR0++
-	movwf l_Cl
-	goto done_stack
+;	call start_stack
+;	moviw FSR0++
+;	movwf l_Ch
+;	moviw FSR0++
+;	movwf l_Cl
+;	goto done_stack
+	return
 

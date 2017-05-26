@@ -1,5 +1,7 @@
 
 
+; one walking red, skipping each second, "Kraftwerk" style.
+
 gen_pattern1:
 	banksel 0
 
@@ -45,21 +47,6 @@ _pat1__lop:
 	btfss STATUS,Z
 	goto _pat1__lop
 
-
-;	movlw low bufferLED
-;	movwf FSR1L
-;	movlw high bufferLED
-;	movwf FSR1H
-;	movf l_state+0,0
-;	movwi 4[FSR1]
-;	movlw 0
-;	movwi 3[FSR1]
-;	movwi 5[FSR1]
-;	movf l_secondsL,0
-;	movwi 7[FSR1]
-;	movlw 0
-;	movwi 6[FSR1]
-;	movwi 8[FSR1]
 
 
 	return

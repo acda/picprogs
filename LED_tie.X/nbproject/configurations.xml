@@ -18,6 +18,9 @@
       <itemPath>pattern1.asm</itemPath>
       <itemPath>pattern2.asm</itemPath>
       <itemPath>pattern3.asm</itemPath>
+      <itemPath>pattern4.asm</itemPath>
+      <itemPath>pattern5.asm</itemPath>
+      <itemPath>pattern6.asm</itemPath>
     </logicalFolder>
     <logicalFolder name="ExternalFiles"
                    displayName="Important Files"
@@ -126,6 +129,12 @@
         </MPASMWIN-LD>
         <mpasmsuite>
         </mpasmsuite>
+      </item>
+      <item path="pattern4.asm" ex="true" overriding="false">
+      </item>
+      <item path="pattern5.asm" ex="true" overriding="false">
+      </item>
+      <item path="pattern6.asm" ex="true" overriding="false">
       </item>
     </conf>
   </confs>

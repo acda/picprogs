@@ -1,5 +1,7 @@
 
 
+; Hue-color-cycle
+
 gen_pattern5:
 	banksel 0
 
@@ -41,17 +43,17 @@ _pat5__lop:
 
 	movf l_Bh,0
 	movwf l_colH
-	movlw 0xC0
-	movwf l_colS
 	movlw 0xFF
+	movwf l_colS
+	movlw 0xB0
 	movwf l_colV
 	call convert_HSV_to_RGB
 
-	movlw l_colR
+	movf l_colR,0
 	movwi FSR1++
-	movlw l_colG
+	movf l_colG,0
 	movwi FSR1++
-	movlw l_colB
+	movf l_colB,0
 	movwi FSR1++
 
 	incf l_pos,1
