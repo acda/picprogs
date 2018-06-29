@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<head>
+  <meta charset="utf-8" />
+  <title>Lichtmuster</title>
+  <meta name="description" content="Muster" />
+  <meta name="keywords" content="Muster" />
+</head>
+<body bgcolor="#CCCCCC">
+
+<h2>Vorschläge für die Muster...</h2>
+
+<canvas id="malmal" width="600" height="400" style="border:1px solid #d3d3d3;">
+Der uralte Drecks-browser kann nichtmal CANVAS ...</canvas>
+
+<script>
+
+var canv = document.getElementById("malmal");
+var _tick = 0;
+var CRV_len = 300
+var CRV_wid = 80
+var CRV_top = 60
+var CRV_x0 = 60
+var CRV_dx = 100
+
+var some_colors = ["#FF0000","#00FF00","#0000FF","#AAAAAA"];
+
+var anim_states = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+var pattern_functions = [pattern_1,pattern_2,pattern_3,pattern_4,pattern_5,pattern_6]
+
+function anim()
+{
+	var ctx;
+
+	for(var i=0;i<pattern_functions.length;i++)
+	{
+		anim_states[i] = draw_pattern(CRV_x0+i*CRV_dx,5,pattern_functions[i],anim_states[i]);
+	}
+
+	_tick = (_tick+1) % 1209600;
+}
+
+function drawCrv(x0,y0)
+{
+	// Krawatte malen0x800
+	var ctx;
+
+	ctx = canv.getContext("2d");
+	ctx.fillStyle="#112233";
+	ctx.strokeStyle="#112233FF";
+
+	ctx.beginPath();
+	ctx.moveTo(x0-CRV_wid*0.4,y0);
+	ctx.lineTo(x0+CRV_wid*0.4,y0);
+	ctx.lineTo(x0+CRV_wid*0.2,y0+CRV_top);
+	ctx.lineTo(x0+CRV_wid*0.5,y0+CRV_top+(CRV_len-CRV_top)*0.85);
+	ctx.lineTo(x0,y0+CRV_len);
+	ctx.lineTo(x0-CRV_wid*0.5,y0+CRV_top+(CRV_len-CRV_top)*0.85);
+	ctx.lineTo(x0-CRV_wid*0.2,y0+CRV_top);
+	ctx.closePath();
+	ctx.fill();
+
+//	ctx.stroke();
+}
+
+function pattern_1(arr,state)
+{
+	// Wie original. Nur jede zweite, rot, von oben nach unten.
+	var nl = ((arr.length+1)/2)|0;
+	state = state+1;
+	var tc = (state/5)|0;
+
+	if(tc==nl){state=0;tc=0;}
+
+	for(var i=0;i<arr.length;i++)
+	{
+		if(i&1)
+			arr[i]=[0,0,0];
+		else if(tc*2==i)
+			arr[i]=[1,0.1,0.05];
+		else
+			arr[i]=[0.1,0.1,0.05];
+	}
+	return state
+}
+
+function pattern_2(arr,state)
+{
+	// Farbverlauf.
+	state = (state+1)%0x10000000;
+
+	for(var i=0;i<arr.length;i++)
+	{
+		var col = hsv_2_rgb(1+state*0.0125-i*0.01,0.75,1);
+		arr[i]=col;
+	}
+
+	return state;
+}
+
+var Fcol = [[0.5,0.5,0.5],[1,0,0],[0,1,0],[0,0,1],[0.9,0.9,0],[0.9,0.7,0.1]];
+var Fspd = [0.3333,0.57,0.73,0.19,0.24,0.65];
+function pattern_3(arr,state)
+{
+	// fallende Farben.
+	state = (state+1)%0x10000000;
+
+	for(var i=0;i<arr.length;i++)
+		arr[i] = [0,0,0];
+
+	for(var F=0;F<Fcol.length;F++)
+	{
+		var pos = (((state*Fspd[F])|0)%arr.length);
+		arr[pos][0] += Fcol[F][0];
+		arr[pos][1] += Fcol[F][1];
+		arr[pos][2] += Fcol[F][2];
+	}
+
+	// clip
+	for(var i=0;i<arr.length;i++)
+	{
+		for(var j=0;i<3;i++)
+			if(arr[i][j]>1.0)
+				arr[i][j]=1.0;
+	}
+
+	return state;
+}
+
+function pattern_4(arr,state)
+{
+	// weiss blinken
+	var col = [0,0,0];
+
+	state = (state+1)%(3+3);
+	if(state<3)
+		col = [1,1,1];
+
+	for(var i=0;i<arr.length;i++)
+		arr[i]=col;
+
+	return state;
+}
+
+function pattern_5(arr,state)
+{
+	// "Knight-rider"  rotlicht.
+	state = (state+1)%31;
+
+	for(var i=0;i<arr.length;i++)
+		arr[i]=[0.0,0.0,0.0];
+
+	var pos = (Math.sin(state*2*3.14159/31)*0.5+0.5)*(arr.length-1);
+	smooth_mix_in_line(arr,pos-0.4,[1,0.2,0.2])
+	smooth_mix_in_line(arr,pos+0.4,[1,0.2,0.2])
+
+	return state;
+}
+
+var PAT6_MINSPEED = 0.9;
+var PAT6_MAXSPEED = 2.0;
+var PAT6_MAXDELAY = 10;
+var PAT6_LEN = 5;
+
+function pattern_6(arr,state)
+{
+	// weiss tropfen
+	var speed;
+	var pos;
+
+	for(var i=0;i<arr.length;i++)
+		arr[i]=[0.0,0.0,0.0];
+
+	if(state<=0)
+	{
+		state = state+1;
+		if(state<0)
+			return state;
+		// start. choose speed
+		speed = Math.random()*(PAT6_MAXSPEED-PAT6_MINSPEED)+PAT6_MINSPEED;
+		state = ((speed*256)|0)*65536;
+	}
+
+	speed = (state>>>16)/256.0;
+	pos = state % 65536.0;
+
+	for(var j=0;j<PAT6_LEN;j++)
+		smooth_mix_in_line(arr,pos-j,[0.6,0.7,1.0]);
+
+	pos += speed;
+	state += speed;
+	if(pos>arr.length+PAT6_LEN)
+	{
+		// is out
+		state = (Math.random()*PAT6_MAXDELAY)|0;
+		state = -1-state;
+	}
+
+	return state
+}
+
+function hsv_2_rgb(h,s,v)
+{
+	var hh=6.0*(h%1.0);
+	var r,g,b;
+	r=g=b=0.0;
+	if(hh<1.0)
+		{r=1.0;g=hh-0.0;}
+	else if(hh<2.0)
+		{r=2.0-hh;g=1.0;}
+	else if(hh<3.0)
+		{g=1.0;b=hh-2.0;}
+	else if(hh<4.0)
+		{g=4.0-hh;b=1.0;}
+	else if(hh<5.0)
+		{b=1.0;r=hh-4.0;}
+	else
+		{b=6.0-hh;r=1.0;}
+	if(s<1.0)
+	{
+		r=1.0-(s*(1-r));
+		g=1.0-(s*(1-g));
+		b=1.0-(s*(1-b));
+	}
+	if(v<1.0)
+		{r*=v;g*=v;b*=v;}
+	return [r,g,b];
+}
+
+function smooth_mix_in_line(line_ar,pos,col_ar)
+{
+	var pos1 = ((pos+2.0)|0)-2;
+	var pos2 = pos1+1;
+	var q2 = pos-pos1;
+	var q1 = 1.0-q2;
+
+	if( pos1>=0 && pos1<line_ar.length)
+	{
+		line_ar[pos1][0] = line_ar[pos1][0]*q2 + col_ar[0]*q1;
+		line_ar[pos1][1] = line_ar[pos1][1]*q2 + col_ar[1]*q1;
+		line_ar[pos1][2] = line_ar[pos1][2]*q2 + col_ar[2]*q1;
+	}
+	if( pos2>=0 && pos2<line_ar.length)
+	{
+		line_ar[pos2][0] = line_ar[pos2][0]*q1 + col_ar[0]*q2;
+		line_ar[pos2][1] = line_ar[pos2][1]*q1 + col_ar[1]*q2;
+		line_ar[pos2][2] = line_ar[pos2][2]*q1 + col_ar[2]*q2;
+	}
+}
+
+var BSh = 4;
+function draw_pattern(x0,y0,pat_func,state)
+{
+	ctx = canv.getContext("2d");
+	var arr = [];
+	for(var i=0;i<15;i++)   // length here?
+		arr.push([0.0,0.0,0.0])
+	var new_state = pat_func(arr,state);
+	var nl = arr.length;
+	var dy = CRV_len*0.65 / nl;
+	var y00 = y0 + CRV_top + CRV_len*0.05;
+
+	for(var i=0;i<nl;i++)
+	{
+		var col = arr[i];
+		var s = "#"
+				+ ((256+255*col[0])|0).toString(16).slice(-2)
+				+ ((256+255*col[1])|0).toString(16).slice(-2)
+				+ ((256+255*col[2])|0).toString(16).slice(-2) ;
+		ctx.fillStyle=s;
+		ctx.beginPath();
+		ctx.fillRect(x0-BSh,y00+i*dy-BSh,BSh*2,BSh*2);
+	}
+	return new_state;
+}
+
+for(var i=0;i<pattern_functions.length;i++)
+{
+	drawCrv(CRV_x0+i*CRV_dx,5);
+}
+
+var timer = setInterval(anim, 50);
+
+var abc = (0x104).toString(16).slice(-2);
+
+abc += 1;
+
+</script>
+
+</body>
+</html>
