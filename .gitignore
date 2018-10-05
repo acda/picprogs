@@ -20,3 +20,6 @@ funclist
 nbproject/Makefile-*
 disassembly/
 *.map
+/LED_tie.X/nbproject/private/
+
+

@@ -2,7 +2,7 @@
 
 
 ; PIC12F1840 Configuration Bit Settings
-#include "p12F1840.inc"
+#include "p12f1840.inc"
 
 
 ;config bits: internal osc.
@@ -14,9 +14,9 @@
  __CONFIG _CONFIG2, _WRT_OFF & _PLLEN_ON & _STVREN_ON & _BORV_LO & _LVP_OFF
 
 
-NUM_LEDS = .15	; max 0x60!!!
+NUM_LEDS = .36	; max 0x60!!!
 
-ANIMS_NUMBER = .6
+ANIMS_NUMBER = .8
 BUTTON_TM_THRES = .100
 
 ; vars on all banks
@@ -51,7 +51,7 @@ l_nextMeasure    = 0x2C	; compared against l_secondsH
 l_rndL           = 0x2E
 l_rndH           = 0x2F
 
-l_state          = 0x30 ; 0x10 bytes.
+l_state          = 0x30 ; 0x10 bytes. Zeroed on switch.
 
 l_colR         = 0x40
 l_colG         = 0x41
@@ -60,7 +60,7 @@ l_colH         = 0x43
 l_colS         = 0x44
 l_colV         = 0x45
 
-l_pos          = 0x47
+l_pos          = 0x47  ; LED-pos in calc-loop of patterns.
 l_X            = 0x48
 
 l_scratch  = 0x49	; 0x17 bytes
@@ -280,14 +280,14 @@ mainloop:
 	bra _main__buttDone
 _main__buttPrs:
 	movlw BUTTON_TM_THRES
-	subwf l_button,0
+	subwf l_button,0    ; l_button >= BUTTON_TM_THRES  ?
 	clrf l_button
 	btfss STATUS,C
 	bra _main__buttDone
 	; change active animation
 	incf l_anim_no,1
 	movlw ANIMS_NUMBER
-	subwf l_anim_no,0
+	subwf l_anim_no,0   ; l_anim_no < ANIMS_NUMBER ?
 	btfsc STATUS,C
 	clrf l_anim_no
 	call clr_state
@@ -318,24 +318,30 @@ clr_state:
 	return
 
 call_anim:
-	lslf l_anim_no,0
-	andlw 0x0E
+	movf l_anim_no,0
+	andlw 0x0F
 	brw
-	call gen_pattern1
+
+	goto gen_pattern0_null
+	goto gen_pattern1
+	goto gen_pattern2
+	goto gen_pattern3
+
+	goto gen_pattern4
+	goto gen_pattern5
+	goto gen_pattern6
+	goto gen_pattern7_huescroll
+
 	return
-	call gen_pattern2
 	return
-	call gen_pattern3
 	return
-	call gen_pattern4
 	return
-	call gen_pattern5
+
 	return
-	call gen_pattern6
 	return
-	call gen_pattern6
 	return
-	call gen_pattern6
+	return
+
 	return
 
 rnd:
@@ -394,12 +400,14 @@ pop_stack:
 ;====================================================================
 
 	; pattern generators
-#include "pattern1.asm"
-#include "pattern2.asm"
-#include "pattern3.asm"
-#include "pattern4.asm"
-#include "pattern5.asm"
-#include "pattern6.asm"
+#include "pattern0_null.asm"
+#include "pattern1_kraftwerk.asm"
+#include "pattern2_walkwhite.asm"
+#include "pattern3_kit.asm"
+#include "pattern4_droppers.asm"
+#include "pattern5_huecycle.asm"
+#include "pattern6_brightflash.asm"
+#include "pattern7_huescroll.asm"
 
 #include "colorful.asm"
 

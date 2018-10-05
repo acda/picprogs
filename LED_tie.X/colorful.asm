@@ -199,7 +199,7 @@ convert_HSV_to_RGB:
 	; convert HSV ...
 	; input: in l_colH/l_colS/l_colV
 	; output: in l_colR/l_colG/l_colB
-	; uses
+	; uses   l_A, l_C , l_colX    (no l_B)
 	banksel 0
 	; same some vars
 ;	call start_stack
