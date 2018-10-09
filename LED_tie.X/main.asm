@@ -16,7 +16,7 @@
 
 NUM_LEDS = .36	; max 0x60!!!
 
-ANIMS_NUMBER = .8
+ANIMS_NUMBER = .9
 BUTTON_TM_THRES = .100
 
 ; vars on all banks
@@ -215,7 +215,7 @@ startPause:
 
 	call clr_state
 
-	movlw 0xFF
+	movlw 0 ; was 0xFF
 	movwf l_button
 	clrf l_anim_no
 
@@ -332,7 +332,7 @@ call_anim:
 	goto gen_pattern6
 	goto gen_pattern7_huescroll
 
-	return
+	goto gen_pattern8_rob_spk
 	return
 	return
 	return
@@ -408,6 +408,7 @@ pop_stack:
 #include "pattern5_huecycle.asm"
 #include "pattern6_brightflash.asm"
 #include "pattern7_huescroll.asm"
+#include "pattern8_spk.asm"
 
 #include "colorful.asm"
 
