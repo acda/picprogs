@@ -1,6 +1,8 @@
 
 ; white walking light.
 
+PAT6_LEVEL = 0x77  ; was 0xB0
+
 gen_pattern6:
 	banksel 0
 
@@ -18,7 +20,7 @@ gen_pattern6:
 	clrf l_pos
 
 _pat6__lop:
-	movlw 0xB0
+	movlw PAT6_LEVEL
 	btfss ml_temp,7
 	movlw 0
 

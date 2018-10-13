@@ -16,6 +16,7 @@ LEDloop:
 	moviw FSR0++ ; green
 	banksel LATA
 	clrf ml_bitcount
+;	    lsrf WREG,0
 loopG:
 	bsf LATA,portA_pin		; clk
 	nop
@@ -38,6 +39,7 @@ loopG:
 	movf ml_temp,0
 	banksel LATA
 	clrf ml_bitcount
+;	    lsrf WREG,0
 loopR:
 	bsf LATA,portA_pin		; clk +15 or +17
 	nop
@@ -54,6 +56,7 @@ loopR:
 	moviw FSR0++
 	banksel LATA
 	clrf ml_bitcount
+;	    lsrf WREG,0
 loopB:
 	bsf LATA,portA_pin		; clk +13 or +15
 	nop

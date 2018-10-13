@@ -27,10 +27,11 @@ _pat8__clear:
 
 
 	movlp high getSine8bitSigned_256circle
-	lsrf l_secondsH,0
-	rrf l_secondsL,0
+	lslf l_secondsL,0
 	call getSine8bitSigned_256circle
 	movwf l_Al
+	movlw 0x80
+	xorwf l_Al,1
 	movlp 0
 	movlw #3
 	call multiply_8_8_16
@@ -54,7 +55,7 @@ _pat8__clear:
 	movwf FSR0L
 	movlw high (bufferLED+3*(NUM_LEDS>>1))
 	movwf FSR0H
-	movf l_Al,0
+	movf l_Ah,0
 	movwf ml_temp
 	btfsc STATUS,Z
 	bra _pat8__skip
@@ -73,7 +74,7 @@ _pat8__lop1:
 	movwf FSR0L
 	movlw high (bufferLED+3*(NUM_LEDS>>1))
 	movwf FSR0H
-	movf l_Al,0
+	movf l_Ah,0
 	movwf ml_temp
 _pat8__lop2:
 	movlw PAT8_COL_B
